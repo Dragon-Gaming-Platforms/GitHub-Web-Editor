@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GitHub Repository Editor</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📝 GitHub Repository Editor</h1>
+        </header>
+
+        <div class="auth-section">
+            <div class="input-group">
+                <label for="pat-token">Personal Access Token:</label>
+                <input type="password" id="pat-token" placeholder="ghp_xxxxxxxxxxxxx">
+                <button id="save-token">Save Token</button>
+            </div>
+        </div>
+
+        <div class="repo-section">
+            <div class="input-group">
+                <label for="repo-owner">Owner:</label>
+                <input type="text" id="repo-owner" placeholder="username">
+                
+                <label for="repo-name">Repository:</label>
+                <input type="text" id="repo-name" placeholder="repo-name">
+                
+                <label for="branch">Branch:</label>
+                <input type="text" id="branch" placeholder="main" value="main">
+                
+                <button id="load-repo">Load Repository</button>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="sidebar">
+                <div class="sidebar-header">
+                    <h3>Files</h3>
+                    <button id="refresh-files" title="Refresh">🔄</button>
+                </div>
+                <div id="file-tree"></div>
+            </div>
+
+            <div class="editor-container">
+                <div class="editor-header">
+                    <span id="current-file">No file selected</span>
+                    <div class="editor-actions">
+                        <button id="new-file">New File</button>
+                        <button id="save-file" disabled>Save File</button>
+                        <button id="delete-file" disabled>Delete File</button>
+                    </div>
+                </div>
+                <textarea id="editor" placeholder="Select a file or create a new one..."></textarea>
+                <div class="editor-footer">
+                    <span id="file-info"></span>
+                </div>
+            </div>
+        </div>
+
+        <div class="commit-section">
+            <div class="input-group">
+                <label for="commit-message">Commit Message:</label>
+                <input type="text" id="commit-message" placeholder="Update files">
+                <button id="commit-push" disabled>Commit & Push</button>
+            </div>
+        </div>
+
+        <div id="status" class="status"></div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
