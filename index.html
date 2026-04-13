@@ -9,27 +9,28 @@
 <body>
     <div class="app-container">
         <!-- Top Bar with Auth -->
-        <header class="top-bar">
-            <div class="auth-row">
-                <div class="input-field">
-                    <label>PAT:</label>
-                    <input type="password" id="pat-token" placeholder="ghp_xxxxxxxxxxxxx">
-                </div>
-                <div class="input-field">
-                    <label>Owner:</label>
-                    <input type="text" id="repo-owner" placeholder="username">
-                </div>
-                <div class="input-field">
-                    <label>Repo:</label>
-                    <input type="text" id="repo-name" placeholder="repo-name">
-                </div>
-                <div class="input-field">
-                    <label>Branch:</label>
-                    <input type="text" id="branch" placeholder="main" value="main">
-                </div>
-                <button id="load-repo" class="primary-btn">Load Repository</button>
-            </div>
-        </header>
+   <header class="top-bar">
+    <div class="auth-row">
+        <div class="input-field">
+            <label>PAT:</label>
+            <input type="password" id="pat-token" placeholder="ghp_xxxxxxxxxxxxx">
+        </div>
+        <div class="input-field">
+            <label>Owner:</label>
+            <input type="text" id="repo-owner" placeholder="username">
+        </div>
+        <div class="input-field">
+            <label>Repo:</label>
+            <input type="text" id="repo-name" placeholder="repo-name">
+        </div>
+        <div class="input-field">
+            <label>Branch:</label>
+            <input type="text" id="branch" placeholder="main" value="main">
+        </div>
+        <button id="load-repo" class="primary-btn">Load Repository</button>
+        <span id="cache-indicator" class="cache-indicator">Cache clear</span>
+    </div>
+</header>
 
         <div class="main-wrapper">
             <!-- Navigation Sidebar -->
