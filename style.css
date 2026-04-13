@@ -878,3 +878,87 @@ button:disabled {
     content: ' ●';
     font-size: 10px;
 }
+/* Deploy button */
+.deploy-btn {
+    font-size: 15px;
+    padding: 12px 28px;
+    background: #6e40c9;
+    border-color: #6e40c9;
+}
+
+.deploy-btn:hover:not(:disabled) {
+    background: #8957e5;
+    border-color: #8957e5;
+}
+
+.deploy-actions {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-top: 5px;
+}
+
+/* Deploy run status panel */
+.deploy-run-status {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid #30363d;
+}
+
+.deploy-run-status h4 {
+    color: #8b949e;
+    font-size: 13px;
+    margin-bottom: 12px;
+}
+
+.deploy-run-info {
+    padding: 12px;
+    background: #0d1117;
+    border-radius: 6px;
+    margin-bottom: 10px;
+}
+
+.deploy-run-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+    border-bottom: 1px solid #21262d;
+    font-size: 13px;
+}
+
+.deploy-run-row:last-child {
+    border-bottom: none;
+}
+
+.deploy-run-label {
+    color: #8b949e;
+}
+
+.deploy-run-value {
+    font-weight: 600;
+}
+
+.deploy-run-actions {
+    display: flex;
+    gap: 8px;
+}
+
+/* Spinning animation for in-progress */
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+}
+
+.spinning {
+    display: inline-block;
+    animation: spin 1.5s linear infinite;
+}
+
+/* Source type toggle */
+#branch-source-config {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
