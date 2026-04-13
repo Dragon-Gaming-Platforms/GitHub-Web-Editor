@@ -852,3 +852,29 @@ button:disabled {
         padding: 10px;
     }
 }
+/* Cache indicator */
+.cache-indicator {
+    font-size: 12px;
+    color: #6e7681;
+    padding: 6px 10px;
+    border-radius: 6px;
+    border: 1px solid #30363d;
+    white-space: nowrap;
+}
+
+.cache-indicator.has-edits {
+    color: #f0883e;
+    border-color: #9e6a03;
+    background: #1f1700;
+    font-weight: 600;
+}
+
+/* File tree pending indicator */
+.file-item.has-changes {
+    color: #f0883e;
+}
+
+.file-item.has-changes::after {
+    content: ' ●';
+    font-size: 10px;
+}
