@@ -37,13 +37,22 @@
                     <h3>Files</h3>
                     <button id="refresh-files" title="Refresh">🔄</button>
                 </div>
+                <div class="sidebar-actions">
+                    <button id="import-file" title="Import File">📥 File</button>
+                    <button id="import-folder" title="Import Folder">📁 Folder</button>
+                    <button id="export-file" title="Export File" disabled>📤 File</button>
+                    <button id="export-folder" title="Export All">💾 All</button>
+                </div>
                 <div id="file-tree"></div>
+                <input type="file" id="file-input" multiple style="display: none;">
+                <input type="file" id="folder-input" webkitdirectory style="display: none;">
             </div>
 
             <div class="editor-container">
                 <div class="editor-header">
                     <span id="current-file">No file selected</span>
                     <div class="editor-actions">
+                        <button id="run-workflow" style="display: none;">▶️ Run Workflow</button>
                         <button id="new-file">New File</button>
                         <button id="save-file" disabled>Save File</button>
                         <button id="delete-file" disabled>Delete File</button>
@@ -65,6 +74,24 @@
         </div>
 
         <div id="status" class="status"></div>
+    </div>
+
+    <!-- Workflow Modal -->
+    <div id="workflow-modal" class="modal">
+        <div class="modal-content">
+            <h3>Run GitHub Actions Workflow</h3>
+            <div class="modal-body">
+                <div class="input-group">
+                    <label for="workflow-ref">Branch/Tag/SHA:</label>
+                    <input type="text" id="workflow-ref" placeholder="main">
+                </div>
+                <div id="workflow-inputs"></div>
+            </div>
+            <div class="modal-actions">
+                <button id="cancel-workflow">Cancel</button>
+                <button id="confirm-workflow">Run Workflow</button>
+            </div>
+        </div>
     </div>
 
     <script src="script.js"></script>
