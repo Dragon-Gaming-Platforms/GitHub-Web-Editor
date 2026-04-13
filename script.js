@@ -9,20 +9,31 @@ class GitHubEditor {
         this.fileContents = {};
         this.fileSHAs = {};
         this.pendingUploads = {};
+        this.workflows = [];
         
         this.initializeElements();
         this.attachEventListeners();
-        this.loadStoredToken();
+        this.loadStoredSettings();
     }
 
     initializeElements() {
         this.elements = {
+            // Navigation
+            navBtns: document.querySelectorAll('.nav-btn'),
+            tabContents: document.querySelectorAll('.tab-content'),
+            
+            // Settings
             patToken: document.getElementById('pat-token'),
             saveToken: document.getElementById('save-token'),
             repoOwner: document.getElementById('repo-owner'),
             repoName: document.getElementById('repo-name'),
             branch: document.getElementById('branch'),
             loadRepo: document.getElementById('load-repo'),
+            fontSize: document.getElementById('font-size'),
+            tabSize: document.getElementById('tab-size'),
+            wordWrap: document.getElementById('word-wrap'),
+            
+            // Code Editor
             fileTree: document.getElementById('file-tree'),
             refreshFiles: document.getElementById('refresh-files'),
             editor: document.getElementById('editor'),
@@ -31,55 +42,125 @@ class GitHubEditor {
             newFile: document.getElementById('new-file'),
             saveFile: document.getElementById('save-file'),
             deleteFile: document.getElementById('delete-file'),
-            commitMessage: document.getElementById('commit-message'),
-            commitPush: document.getElementById('commit-push'),
-            status: document.getElementById('status'),
+            
+            // Import/Export
             importFile: document.getElementById('import-file'),
             importFolder: document.getElementById('import-folder'),
-            exportFile: document.getElementById('export-file'),
-            exportFolder: document.getElementById('export-folder'),
+            exportCurrent: document.getElementById('export-current'),
+            exportAll: document.getElementById('export-all'),
+            exportZip: document.getElementById('export-zip'),
             fileInput: document.getElementById('file-input'),
             folderInput: document.getElementById('folder-input'),
-            runWorkflow: document.getElementById('run-workflow'),
-            workflowModal: document.getElementById('workflow-modal'),
+            pendingImports: document.getElementById('pending-imports'),
+            batchCommitMessage: document.getElementById('batch-commit-message'),
+            batchCommitBtn: document.getElementById('batch-commit-btn'),
+            
+            // GitHub Pages
+            refreshPages: document.getElementById('refresh-pages'),
+            pagesStatus: document.getElementById('pages-status'),
+            pagesBranch: document.getElementById('pages-branch'),
+            pagesPath: document.getElementById('pages-path'),
+            enablePages: document.getElementById('enable-pages'),
+            disablePages: document.getElementById('disable-pages'),
+            deploymentsList: document.getElementById('deployments-list'),
+            pagesUrl: document.getElementById('pages-url'),
+            pagesSettingsUrl: document.getElementById('pages-settings-url'),
+            repoUrl: document.getElementById('repo-url'),
+            
+            // Actions
+            refreshActions: document.getElementById('refresh-actions'),
+            workflowsList: document.getElementById('workflows-list'),
+            workflowSelect: document.getElementById('workflow-select'),
             workflowRef: document.getElementById('workflow-ref'),
-            workflowInputs: document.getElementById('workflow-inputs'),
-            cancelWorkflow: document.getElementById('cancel-workflow'),
-            confirmWorkflow: document.getElementById('confirm-workflow')
+            workflowInputsContainer: document.getElementById('workflow-inputs-container'),
+            triggerWorkflow: document.getElementById('trigger-workflow'),
+            workflowRuns: document.getElementById('workflow-runs'),
+            
+            // Status
+            status: document.getElementById('status')
         };
     }
 
     attachEventListeners() {
+        // Navigation
+        this.elements.navBtns.forEach(btn => {
+            btn.addEventListener('click', () => this.switchTab(btn.dataset.tab));
+        });
+
+        // Settings
         this.elements.saveToken.addEventListener('click', () => this.saveToken());
         this.elements.loadRepo.addEventListener('click', () => this.loadRepository());
+        this.elements.fontSize.addEventListener('change', () => this.updateEditorSettings());
+        this.elements.tabSize.addEventListener('change', () => this.updateEditorSettings());
+        this.elements.wordWrap.addEventListener('change', () => this.updateEditorSettings());
+
+        // Code Editor
         this.elements.refreshFiles.addEventListener('click', () => this.loadRepository());
         this.elements.newFile.addEventListener('click', () => this.createNewFile());
         this.elements.saveFile.addEventListener('click', () => this.saveCurrentFile());
         this.elements.deleteFile.addEventListener('click', () => this.deleteCurrentFile());
-        this.elements.commitPush.addEventListener('click', () => this.commitAndPush());
         this.elements.editor.addEventListener('input', () => this.onEditorChange());
-        
+
         // Import/Export
         this.elements.importFile.addEventListener('click', () => this.elements.fileInput.click());
         this.elements.importFolder.addEventListener('click', () => this.elements.folderInput.click());
         this.elements.fileInput.addEventListener('change', (e) => this.handleFileImport(e));
         this.elements.folderInput.addEventListener('change', (e) => this.handleFolderImport(e));
-        this.elements.exportFile.addEventListener('click', () => this.exportCurrentFile());
-        this.elements.exportFolder.addEventListener('click', () => this.exportAllFiles());
-        
-        // Workflow
-        this.elements.runWorkflow.addEventListener('click', () => this.showWorkflowModal());
-        this.elements.cancelWorkflow.addEventListener('click', () => this.hideWorkflowModal());
-        this.elements.confirmWorkflow.addEventListener('click', () => this.triggerWorkflow());
+        this.elements.exportCurrent.addEventListener('click', () => this.exportCurrentFile());
+        this.elements.exportAll.addEventListener('click', () => this.exportAllFiles());
+        this.elements.exportZip.addEventListener('click', () => this.downloadRepoZip());
+        this.elements.batchCommitBtn.addEventListener('click', () => this.batchCommit());
+
+        // GitHub Pages
+        this.elements.refreshPages.addEventListener('click', () => this.loadPagesInfo());
+        this.elements.enablePages.addEventListener('click', () => this.enablePages());
+        this.elements.disablePages.addEventListener('click', () => this.disablePages());
+
+        // Actions
+        this.elements.refreshActions.addEventListener('click', () => this.loadActionsInfo());
+        this.elements.workflowSelect.addEventListener('change', () => this.onWorkflowSelect());
+        this.elements.triggerWorkflow.addEventListener('click', () => this.triggerWorkflow());
     }
 
-    loadStoredToken() {
+    loadStoredSettings() {
         if (this.token) {
             this.elements.patToken.value = this.token;
-            this.showStatus('Token loaded from storage', 'info');
         }
+
+        const settings = JSON.parse(localStorage.getItem('editor_settings') || '{}');
+        if (settings.fontSize) this.elements.fontSize.value = settings.fontSize;
+        if (settings.tabSize) this.elements.tabSize.value = settings.tabSize;
+        if (settings.wordWrap !== undefined) this.elements.wordWrap.checked = settings.wordWrap;
+
+        this.updateEditorSettings();
     }
 
+    updateEditorSettings() {
+        const fontSize = this.elements.fontSize.value;
+        const tabSize = this.elements.tabSize.value;
+        const wordWrap = this.elements.wordWrap.checked;
+
+        this.elements.editor.style.fontSize = `${fontSize}px`;
+        this.elements.editor.style.tabSize = tabSize;
+        this.elements.editor.style.whiteSpace = wordWrap ? 'pre-wrap' : 'pre';
+
+        localStorage.setItem('editor_settings', JSON.stringify({
+            fontSize, tabSize, wordWrap
+        }));
+    }
+
+    // Navigation
+    switchTab(tabId) {
+        this.elements.navBtns.forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.tab === tabId);
+        });
+
+        this.elements.tabContents.forEach(tab => {
+            tab.classList.toggle('active', tab.id === `tab-${tabId}`);
+        });
+    }
+
+    // Token Management
     saveToken() {
         this.token = this.elements.patToken.value.trim();
         if (this.token) {
@@ -90,7 +171,7 @@ class GitHubEditor {
         }
     }
 
-    // Proper UTF-8 Base64 decoding (handles emojis)
+    // Base64 Encoding/Decoding with UTF-8 support
     decodeBase64(base64) {
         try {
             const binaryString = atob(base64);
@@ -105,7 +186,6 @@ class GitHubEditor {
         }
     }
 
-    // Proper UTF-8 Base64 encoding (handles emojis)
     encodeBase64(text) {
         try {
             const bytes = new TextEncoder().encode(text);
@@ -120,6 +200,7 @@ class GitHubEditor {
         }
     }
 
+    // Repository Loading
     async loadRepository() {
         this.owner = this.elements.repoOwner.value.trim();
         this.repo = this.elements.repoName.value.trim();
@@ -134,8 +215,12 @@ class GitHubEditor {
 
         try {
             await this.fetchRepositoryTree();
+            await this.loadBranches();
+            this.updateQuickLinks();
             this.showStatus('Repository loaded successfully', 'success');
-            this.elements.commitPush.disabled = false;
+            
+            // Switch to code tab
+            this.switchTab('code');
         } catch (error) {
             this.showStatus(`Error: ${error.message}`, 'error');
         }
@@ -158,6 +243,41 @@ class GitHubEditor {
         const data = await response.json();
         this.files = this.organizeFiles(data.tree);
         this.renderFileTree();
+    }
+
+    async loadBranches() {
+        try {
+            const url = `https://api.github.com/repos/${this.owner}/${this.repo}/branches`;
+            const response = await fetch(url, {
+                headers: {
+                    'Authorization': `token ${this.token}`,
+                    'Accept': 'application/vnd.github.v3+json'
+                }
+            });
+
+            if (response.ok) {
+                const branches = await response.json();
+                this.elements.pagesBranch.innerHTML = '<option value="">Select branch</option>';
+                branches.forEach(branch => {
+                    const option = document.createElement('option');
+                    option.value = branch.name;
+                    option.textContent = branch.name;
+                    this.elements.pagesBranch.appendChild(option);
+                });
+            }
+        } catch (e) {
+            console.error('Failed to load branches:', e);
+        }
+    }
+
+    updateQuickLinks() {
+        const repoBase = `https://github.com/${this.owner}/${this.repo}`;
+        
+        this.elements.repoUrl.href = repoBase;
+        this.elements.repoUrl.classList.remove('disabled');
+        
+        this.elements.pagesSettingsUrl.href = `${repoBase}/settings/pages`;
+        this.elements.pagesSettingsUrl.classList.remove('disabled');
     }
 
     organizeFiles(tree) {
@@ -202,7 +322,7 @@ class GitHubEditor {
                 folders.push(key);
             }
         });
-        
+
         folders.sort().forEach(key => {
             const item = level[key];
             const fullPath = prefix ? `${prefix}/${key}` : key;
@@ -224,10 +344,9 @@ class GitHubEditor {
             
             container.appendChild(folderDiv);
             container.appendChild(contentDiv);
-            
             this.renderTreeLevel(item, contentDiv, fullPath);
         });
-        
+
         files.sort().forEach(key => {
             const item = level[key];
             const fileDiv = document.createElement('div');
@@ -244,26 +363,11 @@ class GitHubEditor {
     getFileIcon(filename) {
         const ext = filename.split('.').pop().toLowerCase();
         const icons = {
-            'js': '📜',
-            'ts': '📘',
-            'json': '📋',
-            'html': '🌐',
-            'css': '🎨',
-            'md': '📝',
-            'yml': '⚙️',
-            'yaml': '⚙️',
-            'py': '🐍',
-            'rb': '💎',
-            'go': '🔵',
-            'rs': '🦀',
-            'java': '☕',
-            'php': '🐘',
-            'sh': '💻',
-            'txt': '📄',
-            'svg': '🖼️',
-            'png': '🖼️',
-            'jpg': '🖼️',
-            'gif': '🖼️'
+            'js': '📜', 'ts': '📘', 'json': '📋', 'html': '🌐',
+            'css': '🎨', 'md': '📝', 'yml': '⚙️', 'yaml': '⚙️',
+            'py': '🐍', 'rb': '💎', 'go': '🔵', 'rs': '🦀',
+            'java': '☕', 'php': '🐘', 'sh': '💻', 'txt': '📄',
+            'svg': '🖼️', 'png': '🖼️', 'jpg': '🖼️', 'gif': '🖼️'
         };
         return icons[ext] || '📄';
     }
@@ -287,7 +391,6 @@ class GitHubEditor {
 
             const data = await response.json();
             
-            // Handle binary files
             if (this.isBinaryFile(path)) {
                 this.elements.editor.value = `[Binary file - ${data.size} bytes]\n\nBase64 content:\n${data.content}`;
                 this.elements.editor.disabled = true;
@@ -306,17 +409,10 @@ class GitHubEditor {
             
             this.elements.saveFile.disabled = false;
             this.elements.deleteFile.disabled = false;
-            this.elements.exportFile.disabled = false;
+            this.elements.exportCurrent.disabled = false;
             
-            // Show/hide workflow button
-            this.updateWorkflowButton(path);
-            
-            // Highlight active file
             document.querySelectorAll('.file-item').forEach(item => {
-                item.classList.remove('active');
-                if (item.dataset.path === path) {
-                    item.classList.add('active');
-                }
+                item.classList.toggle('active', item.dataset.path === path);
             });
             
             this.showStatus('File loaded successfully', 'success');
@@ -326,17 +422,12 @@ class GitHubEditor {
     }
 
     isBinaryFile(path) {
-        const binaryExtensions = ['png', 'jpg', 'jpeg', 'gif', 'bmp', 'ico', 'webp', 
-                                   'pdf', 'zip', 'tar', 'gz', 'exe', 'dll', 'so',
-                                   'woff', 'woff2', 'ttf', 'eot', 'mp3', 'mp4', 
-                                   'wav', 'avi', 'mov', 'webm'];
+        const binaryExtensions = ['png', 'jpg', 'jpeg', 'gif', 'bmp', 'ico', 'webp',
+            'pdf', 'zip', 'tar', 'gz', 'exe', 'dll', 'so',
+            'woff', 'woff2', 'ttf', 'eot', 'mp3', 'mp4',
+            'wav', 'avi', 'mov', 'webm'];
         const ext = path.split('.').pop().toLowerCase();
         return binaryExtensions.includes(ext);
-    }
-
-    updateWorkflowButton(path) {
-        const isWorkflow = path.match(/^\.github\/workflows\/.*\.(yml|yaml)$/i);
-        this.elements.runWorkflow.style.display = isWorkflow ? 'inline-block' : 'none';
     }
 
     createNewFile() {
@@ -352,8 +443,8 @@ class GitHubEditor {
         this.elements.fileInfo.textContent = 'New file - not saved';
         this.elements.saveFile.disabled = false;
         this.elements.deleteFile.disabled = true;
-        this.elements.exportFile.disabled = false;
-        this.updateWorkflowButton(fileName);
+        this.elements.exportCurrent.disabled = false;
+        this.updatePendingList();
     }
 
     onEditorChange() {
@@ -411,8 +502,9 @@ class GitHubEditor {
             this.showStatus('File saved successfully', 'success');
             this.elements.fileInfo.textContent = `Saved | SHA: ${data.content.sha.substring(0, 7)}`;
             this.elements.currentFile.textContent = this.currentFile;
+            this.updatePendingList();
             
-            await this.loadRepository();
+            await this.fetchRepositoryTree();
         } catch (error) {
             this.showStatus(`Error saving file: ${error.message}`, 'error');
         }
@@ -463,17 +555,16 @@ class GitHubEditor {
             this.elements.fileInfo.textContent = '';
             this.elements.saveFile.disabled = true;
             this.elements.deleteFile.disabled = true;
-            this.elements.exportFile.disabled = true;
-            this.elements.runWorkflow.style.display = 'none';
+            this.elements.exportCurrent.disabled = true;
             
             this.showStatus('File deleted successfully', 'success');
-            await this.loadRepository();
+            await this.fetchRepositoryTree();
         } catch (error) {
             this.showStatus(`Error deleting file: ${error.message}`, 'error');
         }
     }
 
-    // Import file(s)
+    // Import/Export Functions
     async handleFileImport(event) {
         const files = event.target.files;
         if (!files.length) return;
@@ -483,10 +574,10 @@ class GitHubEditor {
         }
         
         event.target.value = '';
-        this.showStatus(`${files.length} file(s) imported. Save each file to push to repository.`, 'success');
+        this.updatePendingList();
+        this.showStatus(`${files.length} file(s) imported`, 'success');
     }
 
-    // Import folder
     async handleFolderImport(event) {
         const files = event.target.files;
         if (!files.length) return;
@@ -497,7 +588,8 @@ class GitHubEditor {
         }
         
         event.target.value = '';
-        this.showStatus(`${files.length} file(s) imported from folder. Save each file to push to repository.`, 'success');
+        this.updatePendingList();
+        this.showStatus(`${files.length} file(s) imported from folder`, 'success');
     }
 
     async importSingleFile(file, path) {
@@ -507,25 +599,38 @@ class GitHubEditor {
                 const content = e.target.result;
                 this.pendingUploads[path] = content;
                 this.fileContents[path] = content;
-                
-                // If this is the first file, show it in editor
-                if (Object.keys(this.pendingUploads).length === 1) {
-                    this.currentFile = path;
-                    this.elements.editor.value = content;
-                    this.elements.currentFile.textContent = path + ' (imported)';
-                    this.elements.fileInfo.textContent = 'Imported - not saved';
-                    this.elements.saveFile.disabled = false;
-                    this.elements.exportFile.disabled = false;
-                    this.updateWorkflowButton(path);
-                }
-                
                 resolve();
             };
             reader.readAsText(file);
         });
     }
 
-    // Export current file
+    updatePendingList() {
+        const pendingPaths = Object.keys(this.pendingUploads);
+        
+        if (pendingPaths.length === 0) {
+            this.elements.pendingImports.innerHTML = '';
+            this.elements.batchCommitBtn.disabled = true;
+            return;
+        }
+
+        this.elements.batchCommitBtn.disabled = false;
+        this.elements.pendingImports.innerHTML = `
+            <h4 style="margin-bottom: 10px; color: #8b949e;">Pending Files (${pendingPaths.length})</h4>
+            ${pendingPaths.map(path => `
+                <div class="pending-item">
+                    <span>${path}</span>
+                    <button class="remove-btn" onclick="editor.removePending('${path}')">✕</button>
+                </div>
+            `).join('')}
+        `;
+    }
+
+    removePending(path) {
+        delete this.pendingUploads[path];
+        this.updatePendingList();
+    }
+
     exportCurrentFile() {
         if (!this.currentFile) {
             this.showStatus('No file selected', 'error');
@@ -538,7 +643,6 @@ class GitHubEditor {
         this.showStatus(`Exported ${filename}`, 'success');
     }
 
-    // Export all files
     async exportAllFiles() {
         if (!this.owner || !this.repo) {
             this.showStatus('Please load a repository first', 'error');
@@ -548,7 +652,6 @@ class GitHubEditor {
         this.showStatus('Preparing export...', 'info');
 
         try {
-            // Get all file paths
             const filePaths = this.getAllFilePaths(this.files);
             
             if (filePaths.length === 0) {
@@ -556,8 +659,6 @@ class GitHubEditor {
                 return;
             }
 
-            // Create a simple ZIP-like structure using a single download with file structure
-            // For simplicity, we'll download as a JSON manifest with all contents
             const exportData = {
                 repository: `${this.owner}/${this.repo}`,
                 branch: this.branch,
@@ -592,7 +693,6 @@ class GitHubEditor {
                 }
             }
 
-            // Download as JSON
             this.downloadFile(
                 `${this.repo}-export.json`,
                 JSON.stringify(exportData, null, 2)
@@ -602,6 +702,17 @@ class GitHubEditor {
         } catch (error) {
             this.showStatus(`Export failed: ${error.message}`, 'error');
         }
+    }
+
+    async downloadRepoZip() {
+        if (!this.owner || !this.repo) {
+            this.showStatus('Please load a repository first', 'error');
+            return;
+        }
+
+        const zipUrl = `https://github.com/${this.owner}/${this.repo}/archive/refs/heads/${this.branch}.zip`;
+        window.open(zipUrl, '_blank');
+        this.showStatus('Downloading ZIP archive...', 'success');
     }
 
     getAllFilePaths(level, prefix = '') {
@@ -630,50 +741,377 @@ class GitHubEditor {
         URL.revokeObjectURL(url);
     }
 
-    // Workflow functions
-    async showWorkflowModal() {
-        if (!this.currentFile) return;
-
-        this.elements.workflowRef.value = this.branch;
-        this.elements.workflowInputs.innerHTML = '';
-
-        // Try to parse workflow file for inputs
-        try {
-            const content = this.elements.editor.value;
-            const workflowInputs = this.parseWorkflowInputs(content);
-            
-            if (workflowInputs.length > 0) {
-                const inputsHeader = document.createElement('h4');
-                inputsHeader.textContent = 'Workflow Inputs';
-                inputsHeader.style.color = '#8b949e';
-                inputsHeader.style.marginBottom = '10px';
-                this.elements.workflowInputs.appendChild(inputsHeader);
-
-                workflowInputs.forEach(input => {
-                    const div = document.createElement('div');
-                    div.className = 'workflow-input-group';
-                    div.innerHTML = `
-                        <label>${input.name}${input.required ? ' *' : ''}</label>
-                        <input type="text" 
-                               data-input-name="${input.name}" 
-                               placeholder="${input.default || ''}"
-                               value="${input.default || ''}">
-                        ${input.description ? `<small>${input.description}</small>` : ''}
-                    `;
-                    this.elements.workflowInputs.appendChild(div);
-                });
-            }
-        } catch (e) {
-            console.error('Failed to parse workflow inputs:', e);
+    async batchCommit() {
+        const pendingPaths = Object.keys(this.pendingUploads);
+        if (pendingPaths.length === 0) {
+            this.showStatus('No pending files to commit', 'error');
+            return;
         }
 
-        this.elements.workflowModal.classList.add('active');
+        const message = this.elements.batchCommitMessage.value.trim() || 'Add imported files';
+
+        if (!confirm(`Commit ${pendingPaths.length} file(s) with message: "${message}"?`)) {
+            return;
+        }
+
+        try {
+            let saved = 0;
+            for (const [path, content] of Object.entries(this.pendingUploads)) {
+                this.showStatus(`Committing... ${saved + 1}/${pendingPaths.length}`, 'info');
+                
+                const url = `https://api.github.com/repos/${this.owner}/${this.repo}/contents/${path}`;
+                
+                const body = {
+                    message: `${message} - ${path}`,
+                    content: this.encodeBase64(content),
+                    branch: this.branch
+                };
+
+                if (this.fileSHAs[path]) {
+                    body.sha = this.fileSHAs[path];
+                }
+
+                const response = await fetch(url, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `token ${this.token}`,
+                        'Accept': 'application/vnd.github.v3+json',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(body)
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    this.fileSHAs[path] = data.content.sha;
+                    delete this.pendingUploads[path];
+                    saved++;
+                }
+            }
+
+            this.updatePendingList();
+            this.showStatus(`Successfully committed ${saved} files!`, 'success');
+            await this.fetchRepositoryTree();
+        } catch (error) {
+            this.showStatus(`Error committing files: ${error.message}`, 'error');
+        }
+    }
+
+    // GitHub Pages Functions
+    async loadPagesInfo() {
+        if (!this.owner || !this.repo) {
+            this.showStatus('Please load a repository first', 'error');
+            return;
+        }
+
+        this.showStatus('Loading Pages info...', 'info');
+
+        try {
+            // Get Pages info
+            const pagesUrl = `https://api.github.com/repos/${this.owner}/${this.repo}/pages`;
+            const pagesResponse = await fetch(pagesUrl, {
+                headers: {
+                    'Authorization': `token ${this.token}`,
+                    'Accept': 'application/vnd.github.v3+json'
+                }
+            });
+
+            if (pagesResponse.ok) {
+                const pagesData = await pagesResponse.json();
+                this.displayPagesStatus(pagesData);
+            } else if (pagesResponse.status === 404) {
+                this.elements.pagesStatus.innerHTML = `
+                    <div class="status-row">
+                        <span class="status-label">Status</span>
+                        <span class="status-value inactive">Not Enabled</span>
+                    </div>
+                `;
+                this.elements.pagesUrl.classList.add('disabled');
+            }
+
+            // Get deployments
+            await this.loadDeployments();
+
+            this.showStatus('Pages info loaded', 'success');
+        } catch (error) {
+            this.showStatus(`Error loading Pages info: ${error.message}`, 'error');
+        }
+    }
+
+    displayPagesStatus(data) {
+        this.elements.pagesStatus.innerHTML = `
+            <div class="status-row">
+                <span class="status-label">Status</span>
+                <span class="status-value ${data.status === 'built' ? 'active' : ''}">${data.status || 'Unknown'}</span>
+            </div>
+            <div class="status-row">
+                <span class="status-label">URL</span>
+                <span class="status-value"><a href="${data.html_url}" target="_blank" style="color: #58a6ff;">${data.html_url}</a></span>
+            </div>
+            <div class="status-row">
+                <span class="status-label">Source</span>
+                <span class="status-value">${data.source?.branch || 'N/A'} / ${data.source?.path || '/'}</span>
+            </div>
+            <div class="status-row">
+                <span class="status-label">HTTPS</span>
+                <span class="status-value">${data.https_enforced ? 'Enforced' : 'Not enforced'}</span>
+            </div>
+        `;
+
+        if (data.html_url) {
+            this.elements.pagesUrl.href = data.html_url;
+            this.elements.pagesUrl.classList.remove('disabled');
+        }
+
+        if (data.source) {
+            this.elements.pagesBranch.value = data.source.branch;
+            this.elements.pagesPath.value = data.source.path;
+        }
+    }
+
+    async loadDeployments() {
+        try {
+            const url = `https://api.github.com/repos/${this.owner}/${this.repo}/deployments`;
+            const response = await fetch(url, {
+                headers: {
+                    'Authorization': `token ${this.token}`,
+                    'Accept': 'application/vnd.github.v3+json'
+                }
+            });
+
+            if (response.ok) {
+                const deployments = await response.json();
+                
+                if (deployments.length === 0) {
+                    this.elements.deploymentsList.innerHTML = '<p class="muted">No deployments found</p>';
+                    return;
+                }
+
+                this.elements.deploymentsList.innerHTML = deployments.slice(0, 5).map(dep => `
+                    <div class="deployment-item">
+                        <div class="deployment-header">
+                            <span class="deployment-env">${dep.environment}</span>
+                            <span class="deployment-status">${new Date(dep.created_at).toLocaleDateString()}</span>
+                        </div>
+                        <div class="deployment-url">
+                            Ref: ${dep.ref}
+                        </div>
+                    </div>
+                `).join('');
+            }
+        } catch (e) {
+            console.error('Failed to load deployments:', e);
+        }
+    }
+
+    async enablePages() {
+        const branch = this.elements.pagesBranch.value;
+        const path = this.elements.pagesPath.value;
+
+        if (!branch) {
+            this.showStatus('Please select a branch', 'error');
+            return;
+        }
+
+        try {
+            this.showStatus('Enabling GitHub Pages...', 'info');
+
+            const url = `https://api.github.com/repos/${this.owner}/${this.repo}/pages`;
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `token ${this.token}`,
+                    'Accept': 'application/vnd.github.v3+json',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    source: {
+                        branch: branch,
+                        path: path
+                    }
+                })
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.message || response.statusText);
+            }
+
+            this.showStatus('GitHub Pages enabled successfully!', 'success');
+            await this.loadPagesInfo();
+        } catch (error) {
+            this.showStatus(`Error enabling Pages: ${error.message}`, 'error');
+        }
+    }
+
+    async disablePages() {
+        if (!confirm('Are you sure you want to disable GitHub Pages?')) {
+            return;
+        }
+
+        try {
+            this.showStatus('Disabling GitHub Pages...', 'info');
+
+            const url = `https://api.github.com/repos/${this.owner}/${this.repo}/pages`;
+            const response = await fetch(url, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `token ${this.token}`,
+                    'Accept': 'application/vnd.github.v3+json'
+                }
+            });
+
+            if (!response.ok && response.status !== 204) {
+                throw new Error('Failed to disable Pages');
+            }
+
+            this.showStatus('GitHub Pages disabled', 'success');
+            await this.loadPagesInfo();
+        } catch (error) {
+            this.showStatus(`Error disabling Pages: ${error.message}`, 'error');
+        }
+    }
+
+    // GitHub Actions Functions
+    async loadActionsInfo() {
+        if (!this.owner || !this.repo) {
+            this.showStatus('Please load a repository first', 'error');
+            return;
+        }
+
+        this.showStatus('Loading Actions info...', 'info');
+
+        try {
+            // Get workflows
+            const workflowsUrl = `https://api.github.com/repos/${this.owner}/${this.repo}/actions/workflows`;
+            const workflowsResponse = await fetch(workflowsUrl, {
+                headers: {
+                    'Authorization': `token ${this.token}`,
+                    'Accept': 'application/vnd.github.v3+json'
+                }
+            });
+
+            if (workflowsResponse.ok) {
+                const data = await workflowsResponse.json();
+                this.workflows = data.workflows || [];
+                this.displayWorkflows();
+            }
+
+            // Get recent runs
+            await this.loadWorkflowRuns();
+
+            this.showStatus('Actions info loaded', 'success');
+        } catch (error) {
+            this.showStatus(`Error loading Actions info: ${error.message}`, 'error');
+        }
+    }
+
+    displayWorkflows() {
+        if (this.workflows.length === 0) {
+            this.elements.workflowsList.innerHTML = '<p class="muted">No workflows found</p>';
+            this.elements.workflowSelect.innerHTML = '<option value="">No workflows available</option>';
+            return;
+        }
+
+        this.elements.workflowsList.innerHTML = this.workflows.map(wf => `
+            <div class="workflow-item">
+                <div>
+                    <div class="workflow-name">${wf.name}</div>
+                    <div class="workflow-path">${wf.path}</div>
+                </div>
+                <span class="run-status ${wf.state}">${wf.state}</span>
+            </div>
+        `).join('');
+
+        this.elements.workflowSelect.innerHTML = '<option value="">Select a workflow</option>' +
+            this.workflows.map(wf => `<option value="${wf.id}" data-path="${wf.path}">${wf.name}</option>`).join('');
+    }
+
+    async loadWorkflowRuns() {
+        try {
+            const url = `https://api.github.com/repos/${this.owner}/${this.repo}/actions/runs?per_page=10`;
+            const response = await fetch(url, {
+                headers: {
+                    'Authorization': `token ${this.token}`,
+                    'Accept': 'application/vnd.github.v3+json'
+                }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                const runs = data.workflow_runs || [];
+
+                if (runs.length === 0) {
+                    this.elements.workflowRuns.innerHTML = '<p class="muted">No recent runs</p>';
+                    return;
+                }
+
+                this.elements.workflowRuns.innerHTML = runs.map(run => `
+                    <div class="run-item">
+                        <div>
+                            <div class="run-name">${run.name}</div>
+                            <div class="workflow-path">${run.head_branch} • ${new Date(run.created_at).toLocaleDateString()}</div>
+                        </div>
+                        <span class="run-status ${run.conclusion || run.status}">${run.conclusion || run.status}</span>
+                    </div>
+                `).join('');
+            }
+        } catch (e) {
+            console.error('Failed to load workflow runs:', e);
+        }
+    }
+
+    async onWorkflowSelect() {
+        const workflowId = this.elements.workflowSelect.value;
+        this.elements.triggerWorkflow.disabled = !workflowId;
+        this.elements.workflowInputsContainer.innerHTML = '';
+
+        if (!workflowId) return;
+
+        // Try to load workflow file and parse inputs
+        const selectedOption = this.elements.workflowSelect.selectedOptions[0];
+        const workflowPath = selectedOption.dataset.path;
+
+        if (workflowPath) {
+            try {
+                const url = `https://api.github.com/repos/${this.owner}/${this.repo}/contents/${workflowPath}?ref=${this.branch}`;
+                const response = await fetch(url, {
+                    headers: {
+                        'Authorization': `token ${this.token}`,
+                        'Accept': 'application/vnd.github.v3+json'
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    const content = this.decodeBase64(data.content.replace(/\n/g, ''));
+                    const inputs = this.parseWorkflowInputs(content);
+
+                    if (inputs.length > 0) {
+                        this.elements.workflowInputsContainer.innerHTML = `
+                            <h4 style="margin-bottom: 10px; color: #8b949e;">Workflow Inputs</h4>
+                            ${inputs.map(input => `
+                                <div class="workflow-input-group">
+                                    <label>${input.name}${input.required ? ' *' : ''}</label>
+                                    <input type="text" 
+                                           data-input-name="${input.name}" 
+                                           placeholder="${input.default || ''}"
+                                           value="${input.default || ''}">
+                                    ${input.description ? `<small>${input.description}</small>` : ''}
+                                </div>
+                            `).join('')}
+                        `;
+                    }
+                }
+            } catch (e) {
+                console.error('Failed to load workflow inputs:', e);
+            }
+        }
     }
 
     parseWorkflowInputs(yamlContent) {
         const inputs = [];
         
-        // Simple YAML parsing for workflow_dispatch inputs
         const workflowDispatchMatch = yamlContent.match(/workflow_dispatch:\s*\n([\s\S]*?)(?=\n\s*\w+:|$)/);
         if (!workflowDispatchMatch) return inputs;
 
@@ -703,19 +1141,15 @@ class GitHubEditor {
         return inputs;
     }
 
-    hideWorkflowModal() {
-        this.elements.workflowModal.classList.remove('active');
-    }
-
     async triggerWorkflow() {
-        if (!this.currentFile) return;
+        const workflowId = this.elements.workflowSelect.value;
+        if (!workflowId) return;
 
-        const workflowFile = this.currentFile.split('/').pop();
         const ref = this.elements.workflowRef.value.trim() || this.branch;
 
         // Collect inputs
         const inputs = {};
-        this.elements.workflowInputs.querySelectorAll('input[data-input-name]').forEach(input => {
+        this.elements.workflowInputsContainer.querySelectorAll('input[data-input-name]').forEach(input => {
             const name = input.dataset.inputName;
             const value = input.value.trim();
             if (value) {
@@ -726,12 +1160,9 @@ class GitHubEditor {
         try {
             this.showStatus('Triggering workflow...', 'info');
 
-            const url = `https://api.github.com/repos/${this.owner}/${this.repo}/actions/workflows/${workflowFile}/dispatches`;
+            const url = `https://api.github.com/repos/${this.owner}/${this.repo}/actions/workflows/${workflowId}/dispatches`;
             
-            const body = {
-                ref: ref
-            };
-
+            const body = { ref };
             if (Object.keys(inputs).length > 0) {
                 body.inputs = inputs;
             }
@@ -751,72 +1182,17 @@ class GitHubEditor {
                 throw new Error(error.message || response.statusText);
             }
 
-            this.hideWorkflowModal();
-            this.showStatus('Workflow triggered successfully! Check Actions tab on GitHub.', 'success');
+            this.showStatus('Workflow triggered successfully!', 'success');
             
-            // Open GitHub Actions page
             const actionsUrl = `https://github.com/${this.owner}/${this.repo}/actions`;
             if (confirm('Workflow triggered! Open GitHub Actions page?')) {
                 window.open(actionsUrl, '_blank');
             }
+
+            // Refresh runs after a delay
+            setTimeout(() => this.loadWorkflowRuns(), 3000);
         } catch (error) {
             this.showStatus(`Failed to trigger workflow: ${error.message}`, 'error');
-        }
-    }
-
-    async commitAndPush() {
-        const pendingCount = Object.keys(this.pendingUploads).length;
-        if (pendingCount === 0) {
-            this.showStatus('No pending changes. Use "Save File" to save individual files.', 'info');
-            return;
-        }
-
-        const message = this.elements.commitMessage.value.trim() || 'Update files';
-        
-        if (!confirm(`Commit ${pendingCount} file(s) with message: "${message}"?`)) {
-            return;
-        }
-
-        try {
-            this.showStatus(`Committing ${pendingCount} files...`, 'info');
-            
-            let saved = 0;
-            for (const [path, content] of Object.entries(this.pendingUploads)) {
-                const url = `https://api.github.com/repos/${this.owner}/${this.repo}/contents/${path}`;
-                
-                const body = {
-                    message: `${message} - ${path}`,
-                    content: this.encodeBase64(content),
-                    branch: this.branch
-                };
-
-                if (this.fileSHAs[path]) {
-                    body.sha = this.fileSHAs[path];
-                }
-
-                const response = await fetch(url, {
-                    method: 'PUT',
-                    headers: {
-                        'Authorization': `token ${this.token}`,
-                        'Accept': 'application/vnd.github.v3+json',
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(body)
-                });
-
-                if (response.ok) {
-                    const data = await response.json();
-                    this.fileSHAs[path] = data.content.sha;
-                    delete this.pendingUploads[path];
-                    saved++;
-                    this.showStatus(`Saving... ${saved}/${pendingCount}`, 'info');
-                }
-            }
-
-            this.showStatus(`Successfully committed ${saved} files!`, 'success');
-            await this.loadRepository();
-        } catch (error) {
-            this.showStatus(`Error committing files: ${error.message}`, 'error');
         }
     }
 
@@ -832,7 +1208,8 @@ class GitHubEditor {
     }
 }
 
-// Initialize the editor when the page loads
+// Initialize
+let editor;
 document.addEventListener('DOMContentLoaded', () => {
-    new GitHubEditor();
+    editor = new GitHubEditor();
 });
