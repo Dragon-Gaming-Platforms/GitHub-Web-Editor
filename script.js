@@ -6,10 +6,12 @@ class GitHubEditor {
         this.branch = 'main';
         this.currentFile = null;
         this.files = {};
+        this.fileTree = [];
         this.fileContents = {};
         this.fileSHAs = {};
         this.pendingUploads = {};
         this.workflows = [];
+        this.ymlFiles = [];
         
         this.initializeElements();
         this.attachEventListeners();
@@ -62,11 +64,14 @@ class GitHubEditor {
             // Actions
             refreshActions: document.getElementById('refresh-actions'),
             workflowsList: document.getElementById('workflows-list'),
-            workflowSelect: document.getElementById('workflow-select'),
+            workflowFileSelect: document.getElementById('workflow-file-select'),
+            workflowFileInfo: document.getElementById('workflow-file-info'),
             workflowRef: document.getElementById('workflow-ref'),
             workflowInputsContainer: document.getElementById('workflow-inputs-container'),
+            workflowDispatchWarning: document.getElementById('workflow-dispatch-warning'),
             triggerWorkflow: document.getElementById('trigger-workflow'),
             workflowRuns: document.getElementById('workflow-runs'),
+            actionsPageLink: document.getElementById('actions-page-link'),
             
             // Settings
             fontSize: document.getElementById('font-size'),
@@ -79,7 +84,7 @@ class GitHubEditor {
     }
 
     attachEventListeners() {
-        // Tab Navigation - Fixed!
+        // Tab Navigation
         document.querySelectorAll('.nav-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const tabId = e.currentTarget.dataset.tab;
@@ -114,7 +119,7 @@ class GitHubEditor {
 
         // Actions
         this.elements.refreshActions.addEventListener('click', () => this.loadActionsInfo());
-        this.elements.workflowSelect.addEventListener('change', () => this.onWorkflowSelect());
+        this.elements.workflowFileSelect.addEventListener('change', () => this.onWorkflowFileSelect());
         this.elements.triggerWorkflow.addEventListener('click', () => this.triggerWorkflow());
 
         // Settings
@@ -122,7 +127,7 @@ class GitHubEditor {
         this.elements.tabSize.addEventListener('change', () => this.updateEditorSettings());
         this.elements.wordWrap.addEventListener('change', () => this.updateEditorSettings());
 
-        // Save token on input change
+        // Auto-save token
         this.elements.patToken.addEventListener('change', () => {
             this.token = this.elements.patToken.value.trim();
             if (this.token) {
@@ -132,12 +137,10 @@ class GitHubEditor {
     }
 
     loadStoredSettings() {
-        // Load PAT
         if (this.token) {
             this.elements.patToken.value = this.token;
         }
 
-        // Load editor settings
         const settings = JSON.parse(localStorage.getItem('editor_settings') || '{}');
         if (settings.fontSize) this.elements.fontSize.value = settings.fontSize;
         if (settings.tabSize) this.elements.tabSize.value = settings.tabSize;
@@ -160,22 +163,12 @@ class GitHubEditor {
 
     // Tab Navigation
     switchTab(tabId) {
-        // Update nav buttons
         document.querySelectorAll('.nav-btn').forEach(btn => {
-            if (btn.dataset.tab === tabId) {
-                btn.classList.add('active');
-            } else {
-                btn.classList.remove('active');
-            }
+            btn.classList.toggle('active', btn.dataset.tab === tabId);
         });
 
-        // Update tab content
         document.querySelectorAll('.tab-content').forEach(tab => {
-            if (tab.id === `tab-${tabId}`) {
-                tab.classList.add('active');
-            } else {
-                tab.classList.remove('active');
-            }
+            tab.classList.toggle('active', tab.id === `tab-${tabId}`);
         });
     }
 
@@ -225,15 +218,14 @@ class GitHubEditor {
             return;
         }
 
-        // Save token
         localStorage.setItem('github_pat', this.token);
-
         this.showStatus('Loading repository...', 'info');
 
         try {
             await this.fetchRepositoryTree();
             await this.loadBranches();
             this.updateQuickLinks();
+            this.populateWorkflowDropdown();
             this.showStatus('Repository loaded successfully', 'success');
             this.switchTab('code');
         } catch (error) {
@@ -256,8 +248,273 @@ class GitHubEditor {
         }
 
         const data = await response.json();
+        this.fileTree = data.tree.filter(item => item.type === 'blob');
         this.files = this.organizeFiles(data.tree);
+        
+        // Extract all .yml and .yaml files
+        this.ymlFiles = this.fileTree
+            .filter(item => item.path.match(/\.(yml|yaml)$/i))
+            .map(item => ({
+                path: item.path,
+                sha: item.sha,
+                isWorkflow: item.path.startsWith('.github/workflows/')
+            }));
+        
         this.renderFileTree();
+    }
+
+    populateWorkflowDropdown() {
+        const select = this.elements.workflowFileSelect;
+        select.innerHTML = '';
+
+        if (this.ymlFiles.length === 0) {
+            select.innerHTML = '<option value="">No .yml files found</option>';
+            return;
+        }
+
+        // Separate workflow files from other yml files
+        const workflowFiles = this.ymlFiles.filter(f => f.isWorkflow);
+        const otherYmlFiles = this.ymlFiles.filter(f => !f.isWorkflow);
+
+        // Add default option
+        const defaultOpt = document.createElement('option');
+        defaultOpt.value = '';
+        defaultOpt.textContent = `-- Select a workflow file (${this.ymlFiles.length} found) --`;
+        select.appendChild(defaultOpt);
+
+        // Add workflow files group
+        if (workflowFiles.length > 0) {
+            const workflowGroup = document.createElement('optgroup');
+            workflowGroup.label = `📁 .github/workflows/ (${workflowFiles.length})`;
+            
+            workflowFiles.forEach(file => {
+                const opt = document.createElement('option');
+                opt.value = file.path;
+                opt.textContent = `⚙️ ${file.path.replace('.github/workflows/', '')}`;
+                opt.dataset.sha = file.sha;
+                workflowGroup.appendChild(opt);
+            });
+            
+            select.appendChild(workflowGroup);
+        }
+
+        // Add other yml files group
+        if (otherYmlFiles.length > 0) {
+            const otherGroup = document.createElement('optgroup');
+            otherGroup.label = `📄 Other YAML files (${otherYmlFiles.length})`;
+            
+            otherYmlFiles.forEach(file => {
+                const opt = document.createElement('option');
+                opt.value = file.path;
+                opt.textContent = `📄 ${file.path}`;
+                opt.dataset.sha = file.sha;
+                otherGroup.appendChild(opt);
+            });
+            
+            select.appendChild(otherGroup);
+        }
+
+        // Set default ref
+        this.elements.workflowRef.value = this.branch;
+    }
+
+    async onWorkflowFileSelect() {
+        const selectedPath = this.elements.workflowFileSelect.value;
+        
+        this.elements.workflowFileInfo.innerHTML = '';
+        this.elements.workflowInputsContainer.innerHTML = '';
+        this.elements.workflowDispatchWarning.style.display = 'none';
+        this.elements.triggerWorkflow.disabled = true;
+
+        if (!selectedPath) return;
+
+        try {
+            this.showStatus('Loading workflow file...', 'info');
+
+            const url = `https://api.github.com/repos/${this.owner}/${this.repo}/contents/${selectedPath}?ref=${this.branch}`;
+            const response = await fetch(url, {
+                headers: {
+                    'Authorization': `token ${this.token}`,
+                    'Accept': 'application/vnd.github.v3+json'
+                }
+            });
+
+            if (!response.ok) throw new Error('Failed to load file');
+
+            const data = await response.json();
+            const content = this.decodeBase64(data.content.replace(/\n/g, ''));
+            
+            // Parse the workflow
+            const workflowInfo = this.parseWorkflowFile(content);
+            
+            // Display file info
+            this.displayWorkflowFileInfo(selectedPath, workflowInfo);
+
+            // Check if it's a valid workflow with workflow_dispatch
+            const isWorkflowDir = selectedPath.startsWith('.github/workflows/');
+            const hasDispatch = workflowInfo.triggers.includes('workflow_dispatch');
+
+            if (!isWorkflowDir) {
+                this.elements.workflowDispatchWarning.innerHTML = '⚠️ This file is not in <code>.github/workflows/</code> directory. Only files in that directory can be run as workflows.';
+                this.elements.workflowDispatchWarning.style.display = 'block';
+            } else if (!hasDispatch) {
+                this.elements.workflowDispatchWarning.innerHTML = '⚠️ This workflow does not have <code>workflow_dispatch</code> trigger. Add it to the <code>on:</code> section to enable manual runs.';
+                this.elements.workflowDispatchWarning.style.display = 'block';
+            } else {
+                this.elements.triggerWorkflow.disabled = false;
+                
+                // Show inputs if any
+                if (workflowInfo.inputs.length > 0) {
+                    this.displayWorkflowInputs(workflowInfo.inputs);
+                }
+            }
+
+            this.showStatus('Workflow loaded', 'success');
+        } catch (error) {
+            this.showStatus(`Error: ${error.message}`, 'error');
+        }
+    }
+
+    parseWorkflowFile(content) {
+        const info = {
+            name: 'Unknown',
+            triggers: [],
+            inputs: []
+        };
+
+        // Get workflow name
+        const nameMatch = content.match(/^name:\s*['"]?([^'"\n]+)['"]?/m);
+        if (nameMatch) {
+            info.name = nameMatch[1].trim();
+        }
+
+        // Get triggers
+        const onMatch = content.match(/^on:\s*\n([\s\S]*?)(?=\njobs:|\n[a-z]+:|\Z)/m);
+        const onInlineMatch = content.match(/^on:\s*\[([^\]]+)\]/m);
+        const onSingleMatch = content.match(/^on:\s+(\w+)\s*$/m);
+
+        if (onInlineMatch) {
+            info.triggers = onInlineMatch[1].split(',').map(t => t.trim());
+        } else if (onSingleMatch) {
+            info.triggers = [onSingleMatch[1]];
+        } else if (onMatch) {
+            const triggerSection = onMatch[1];
+            const triggerMatches = triggerSection.matchAll(/^\s{2}(\w+):/gm);
+            for (const match of triggerMatches) {
+                info.triggers.push(match[1]);
+            }
+        }
+
+        // Check for workflow_dispatch without indentation too
+        if (content.includes('workflow_dispatch') && !info.triggers.includes('workflow_dispatch')) {
+            info.triggers.push('workflow_dispatch');
+        }
+
+        // Get workflow_dispatch inputs
+        const dispatchMatch = content.match(/workflow_dispatch:\s*\n([\s\S]*?)(?=\n\s{2}\w+:|\njobs:|\n[a-z]+:|\Z)/);
+        if (dispatchMatch) {
+            const inputsMatch = dispatchMatch[1].match(/inputs:\s*\n([\s\S]*?)(?=\n\s{4}\w+:(?!\s*\n\s{6})|\n\s{2}\w+:|\njobs:|\Z)/);
+            if (inputsMatch) {
+                const inputSection = inputsMatch[1];
+                // Match input definitions
+                const inputRegex = /^\s{6}(\w+):\s*\n([\s\S]*?)(?=\n\s{6}\w+:|\n\s{4}\w+:|\n\s{2}\w+:|\Z)/gm;
+                let match;
+                
+                // Simpler approach - look for input names at 6 spaces indent
+                const inputNames = inputSection.matchAll(/^\s{6}(\w+):/gm);
+                for (const nameMatch of inputNames) {
+                    const inputName = nameMatch[1];
+                    
+                    // Find this input's properties
+                    const inputBlock = inputSection.substring(nameMatch.index);
+                    const nextInput = inputBlock.substring(nameMatch[0].length).search(/^\s{6}\w+:/m);
+                    const inputContent = nextInput > 0 ? inputBlock.substring(0, nameMatch[0].length + nextInput) : inputBlock;
+                    
+                    const descMatch = inputContent.match(/description:\s*['"]?([^'"\n]+)['"]?/);
+                    const requiredMatch = inputContent.match(/required:\s*(true|false)/);
+                    const defaultMatch = inputContent.match(/default:\s*['"]?([^'"\n]+)['"]?/);
+                    const typeMatch = inputContent.match(/type:\s*(\w+)/);
+                    const optionsMatch = inputContent.match(/options:\s*\n([\s\S]*?)(?=\n\s{8}\w+:|\n\s{6}\w+:|\Z)/);
+                    
+                    const input = {
+                        name: inputName,
+                        description: descMatch ? descMatch[1] : '',
+                        required: requiredMatch ? requiredMatch[1] === 'true' : false,
+                        default: defaultMatch ? defaultMatch[1] : '',
+                        type: typeMatch ? typeMatch[1] : 'string',
+                        options: []
+                    };
+
+                    if (optionsMatch) {
+                        const options = optionsMatch[1].matchAll(/^\s+-\s*['"]?([^'"\n]+)['"]?/gm);
+                        for (const opt of options) {
+                            input.options.push(opt[1].trim());
+                        }
+                    }
+
+                    info.inputs.push(input);
+                }
+            }
+        }
+
+        return info;
+    }
+
+    displayWorkflowFileInfo(path, info) {
+        const triggersHtml = info.triggers.map(t => {
+            let badgeClass = 'other';
+            if (t === 'workflow_dispatch') badgeClass = 'dispatch';
+            else if (t === 'push') badgeClass = 'push';
+            else if (t === 'pull_request') badgeClass = 'pull_request';
+            else if (t === 'schedule') badgeClass = 'schedule';
+            return `<span class="trigger-badge ${badgeClass}">${t}</span>`;
+        }).join('');
+
+        this.elements.workflowFileInfo.innerHTML = `
+            <div class="file-path">${path}</div>
+            <div class="file-details">
+                <strong>Name:</strong> ${info.name}<br>
+                <strong>Branch:</strong> ${this.branch}<br>
+                <strong>Triggers:</strong> ${triggersHtml || '<span class="muted">none detected</span>'}
+            </div>
+        `;
+    }
+
+    displayWorkflowInputs(inputs) {
+        if (inputs.length === 0) return;
+
+        let html = '<h4>Workflow Inputs</h4>';
+        
+        inputs.forEach(input => {
+            html += `<div class="workflow-input-group">`;
+            html += `<label>${input.name}${input.required ? ' <span style="color:#f85149">*</span>' : ''}</label>`;
+            
+            if (input.type === 'choice' && input.options.length > 0) {
+                html += `<select data-input-name="${input.name}">`;
+                html += `<option value="">Select...</option>`;
+                input.options.forEach(opt => {
+                    const selected = opt === input.default ? 'selected' : '';
+                    html += `<option value="${opt}" ${selected}>${opt}</option>`;
+                });
+                html += `</select>`;
+            } else if (input.type === 'boolean') {
+                const checked = input.default === 'true' ? 'checked' : '';
+                html += `<label class="checkbox-label">
+                    <input type="checkbox" data-input-name="${input.name}" ${checked}>
+                    ${input.description || 'Enable'}
+                </label>`;
+            } else {
+                html += `<input type="text" data-input-name="${input.name}" 
+                    placeholder="${input.default || ''}" value="${input.default || ''}">`;
+            }
+            
+            if (input.description && input.type !== 'boolean') {
+                html += `<small>${input.description}</small>`;
+            }
+            html += `</div>`;
+        });
+
+        this.elements.workflowInputsContainer.innerHTML = html;
     }
 
     async loadBranches() {
@@ -293,6 +550,9 @@ class GitHubEditor {
         
         this.elements.pagesSettingsUrl.href = `${repoBase}/settings/pages`;
         this.elements.pagesSettingsUrl.classList.remove('disabled');
+
+        this.elements.actionsPageLink.href = `${repoBase}/actions`;
+        this.elements.actionsPageLink.classList.remove('disabled');
     }
 
     organizeFiles(tree) {
@@ -340,7 +600,6 @@ class GitHubEditor {
 
         folders.sort().forEach(key => {
             const item = level[key];
-            const fullPath = prefix ? `${prefix}/${key}` : key;
             
             const folderDiv = document.createElement('div');
             folderDiv.className = 'folder-item';
@@ -359,7 +618,7 @@ class GitHubEditor {
             
             container.appendChild(folderDiv);
             container.appendChild(contentDiv);
-            this.renderTreeLevel(item, contentDiv, fullPath);
+            this.renderTreeLevel(item, contentDiv, prefix ? `${prefix}/${key}` : key);
         });
 
         files.sort().forEach(key => {
@@ -401,9 +660,7 @@ class GitHubEditor {
                 }
             });
 
-            if (!response.ok) {
-                throw new Error(`Failed to load file: ${response.statusText}`);
-            }
+            if (!response.ok) throw new Error(`Failed to load file: ${response.statusText}`);
 
             const data = await response.json();
             
@@ -521,6 +778,7 @@ class GitHubEditor {
             this.updatePendingList();
             
             await this.fetchRepositoryTree();
+            this.populateWorkflowDropdown();
         } catch (error) {
             this.showStatus(`Error: ${error.message}`, 'error');
         }
@@ -556,9 +814,7 @@ class GitHubEditor {
                 })
             });
 
-            if (!response.ok) {
-                throw new Error(`Failed to delete: ${response.statusText}`);
-            }
+            if (!response.ok) throw new Error(`Failed to delete: ${response.statusText}`);
 
             delete this.fileContents[this.currentFile];
             delete this.fileSHAs[this.currentFile];
@@ -573,12 +829,13 @@ class GitHubEditor {
             
             this.showStatus('File deleted', 'success');
             await this.fetchRepositoryTree();
+            this.populateWorkflowDropdown();
         } catch (error) {
             this.showStatus(`Error: ${error.message}`, 'error');
         }
     }
 
-    // Import/Export
+    // Import/Export functions
     async handleFileImport(event) {
         const files = event.target.files;
         if (!files.length) return;
@@ -610,9 +867,8 @@ class GitHubEditor {
         return new Promise((resolve) => {
             const reader = new FileReader();
             reader.onload = (e) => {
-                const content = e.target.result;
-                this.pendingUploads[path] = content;
-                this.fileContents[path] = content;
+                this.pendingUploads[path] = e.target.result;
+                this.fileContents[path] = e.target.result;
                 resolve();
             };
             reader.readAsText(file);
@@ -639,7 +895,6 @@ class GitHubEditor {
             `).join('')}
         `;
 
-        // Add remove handlers
         this.elements.pendingImports.querySelectorAll('.remove-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 delete this.pendingUploads[btn.dataset.path];
@@ -669,7 +924,7 @@ class GitHubEditor {
         this.showStatus('Exporting...', 'info');
 
         try {
-            const filePaths = this.getAllFilePaths(this.files);
+            const filePaths = this.fileTree.map(f => f.path);
             
             const exportData = {
                 repository: `${this.owner}/${this.repo}`,
@@ -680,6 +935,8 @@ class GitHubEditor {
 
             let loaded = 0;
             for (const path of filePaths) {
+                if (this.isBinaryFile(path)) continue;
+                
                 try {
                     const url = `https://api.github.com/repos/${this.owner}/${this.repo}/contents/${path}?ref=${this.branch}`;
                     const response = await fetch(url, {
@@ -691,12 +948,12 @@ class GitHubEditor {
 
                     if (response.ok) {
                         const data = await response.json();
-                        if (!this.isBinaryFile(path)) {
-                            exportData.files[path] = this.decodeBase64(data.content.replace(/\n/g, ''));
-                        }
+                        exportData.files[path] = this.decodeBase64(data.content.replace(/\n/g, ''));
                     }
                     loaded++;
-                    this.showStatus(`Exporting ${loaded}/${filePaths.length}...`, 'info');
+                    if (loaded % 10 === 0) {
+                        this.showStatus(`Exporting ${loaded}/${filePaths.length}...`, 'info');
+                    }
                 } catch (e) {
                     console.error(`Failed to export ${path}:`, e);
                 }
@@ -717,19 +974,6 @@ class GitHubEditor {
 
         window.open(`https://github.com/${this.owner}/${this.repo}/archive/refs/heads/${this.branch}.zip`, '_blank');
         this.showStatus('Downloading ZIP...', 'success');
-    }
-
-    getAllFilePaths(level, prefix = '') {
-        let paths = [];
-        Object.keys(level).forEach(key => {
-            const item = level[key];
-            if (item.path) {
-                paths.push(item.path);
-            } else {
-                paths = paths.concat(this.getAllFilePaths(item, prefix ? `${prefix}/${key}` : key));
-            }
-        });
-        return paths;
     }
 
     downloadFile(filename, content) {
@@ -790,6 +1034,7 @@ class GitHubEditor {
             this.updatePendingList();
             this.showStatus(`Committed ${saved} files!`, 'success');
             await this.fetchRepositoryTree();
+            this.populateWorkflowDropdown();
         } catch (error) {
             this.showStatus(`Error: ${error.message}`, 'error');
         }
@@ -969,7 +1214,7 @@ class GitHubEditor {
             if (response.ok) {
                 const data = await response.json();
                 this.workflows = data.workflows || [];
-                this.displayWorkflows();
+                this.displayRegisteredWorkflows();
             }
 
             await this.loadWorkflowRuns();
@@ -979,10 +1224,9 @@ class GitHubEditor {
         }
     }
 
-    displayWorkflows() {
+    displayRegisteredWorkflows() {
         if (this.workflows.length === 0) {
-            this.elements.workflowsList.innerHTML = '<p class="muted">No workflows found</p>';
-            this.elements.workflowSelect.innerHTML = '<option value="">No workflows</option>';
+            this.elements.workflowsList.innerHTML = '<p class="muted">No workflows registered</p>';
             return;
         }
 
@@ -995,9 +1239,6 @@ class GitHubEditor {
                 <span class="run-status ${wf.state}">${wf.state}</span>
             </div>
         `).join('');
-
-        this.elements.workflowSelect.innerHTML = '<option value="">Select workflow</option>' +
-            this.workflows.map(wf => `<option value="${wf.id}" data-path="${wf.path}">${wf.name}</option>`).join('');
     }
 
     async loadWorkflowRuns() {
@@ -1033,85 +1274,24 @@ class GitHubEditor {
         }
     }
 
-    async onWorkflowSelect() {
-        const workflowId = this.elements.workflowSelect.value;
-        this.elements.triggerWorkflow.disabled = !workflowId;
-        this.elements.workflowInputsContainer.innerHTML = '';
-
-        if (!workflowId) return;
-
-        const selectedOption = this.elements.workflowSelect.selectedOptions[0];
-        const workflowPath = selectedOption.dataset.path;
-
-        if (workflowPath) {
-            try {
-                const response = await fetch(`https://api.github.com/repos/${this.owner}/${this.repo}/contents/${workflowPath}?ref=${this.branch}`, {
-                    headers: {
-                        'Authorization': `token ${this.token}`,
-                        'Accept': 'application/vnd.github.v3+json'
-                    }
-                });
-
-                if (response.ok) {
-                    const data = await response.json();
-                    const content = this.decodeBase64(data.content.replace(/\n/g, ''));
-                    const inputs = this.parseWorkflowInputs(content);
-
-                    if (inputs.length > 0) {
-                        this.elements.workflowInputsContainer.innerHTML = `
-                            <h4>Workflow Inputs</h4>
-                            ${inputs.map(input => `
-                                <div class="workflow-input-group">
-                                    <label>${input.name}${input.required ? ' *' : ''}</label>
-                                    <input type="text" data-input-name="${input.name}" 
-                                           placeholder="${input.default || ''}" value="${input.default || ''}">
-                                    ${input.description ? `<small>${input.description}</small>` : ''}
-                                </div>
-                            `).join('')}
-                        `;
-                    }
-                }
-            } catch (e) {
-                console.error('Failed to load workflow:', e);
-            }
-        }
-    }
-
-    parseWorkflowInputs(yamlContent) {
-        const inputs = [];
-        const match = yamlContent.match(/workflow_dispatch:\s*\n([\s\S]*?)(?=\n\s*\w+:|$)/);
-        if (!match) return inputs;
-
-        const inputsMatch = match[1].match(/inputs:\s*\n([\s\S]*?)(?=\n\s{2}\w+:|$)/);
-        if (!inputsMatch) return inputs;
-
-        const inputRegex = /(\w+):\s*\n([\s\S]*?)(?=\n\s{6}\w+:|\n\s{4}\w+:|$)/g;
-        let m;
-        while ((m = inputRegex.exec(inputsMatch[1])) !== null) {
-            const descMatch = m[2].match(/description:\s*['"]?([^'"\n]+)['"]?/);
-            const requiredMatch = m[2].match(/required:\s*(true|false)/);
-            const defaultMatch = m[2].match(/default:\s*['"]?([^'"\n]+)['"]?/);
-            
-            inputs.push({
-                name: m[1],
-                description: descMatch ? descMatch[1] : '',
-                required: requiredMatch ? requiredMatch[1] === 'true' : false,
-                default: defaultMatch ? defaultMatch[1] : ''
-            });
-        }
-        return inputs;
-    }
-
     async triggerWorkflow() {
-        const workflowId = this.elements.workflowSelect.value;
-        if (!workflowId) return;
+        const selectedPath = this.elements.workflowFileSelect.value;
+        if (!selectedPath) {
+            this.showStatus('Select a workflow file', 'error');
+            return;
+        }
 
         const ref = this.elements.workflowRef.value.trim() || this.branch;
+        const workflowFile = selectedPath.replace('.github/workflows/', '');
 
+        // Collect inputs
         const inputs = {};
-        this.elements.workflowInputsContainer.querySelectorAll('input[data-input-name]').forEach(input => {
-            if (input.value.trim()) {
-                inputs[input.dataset.inputName] = input.value.trim();
+        this.elements.workflowInputsContainer.querySelectorAll('[data-input-name]').forEach(el => {
+            const name = el.dataset.inputName;
+            if (el.type === 'checkbox') {
+                inputs[name] = el.checked.toString();
+            } else if (el.value.trim()) {
+                inputs[name] = el.value.trim();
             }
         });
 
@@ -1119,9 +1299,11 @@ class GitHubEditor {
             this.showStatus('Triggering workflow...', 'info');
 
             const body = { ref };
-            if (Object.keys(inputs).length > 0) body.inputs = inputs;
+            if (Object.keys(inputs).length > 0) {
+                body.inputs = inputs;
+            }
 
-            const response = await fetch(`https://api.github.com/repos/${this.owner}/${this.repo}/actions/workflows/${workflowId}/dispatches`, {
+            const response = await fetch(`https://api.github.com/repos/${this.owner}/${this.repo}/actions/workflows/${workflowFile}/dispatches`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `token ${this.token}`,
@@ -1136,12 +1318,13 @@ class GitHubEditor {
                 throw new Error(error.message || response.statusText);
             }
 
-            this.showStatus('Workflow triggered!', 'success');
+            this.showStatus('Workflow triggered! It may take a moment to appear in the runs list.', 'success');
             
-            if (confirm('Open Actions page?')) {
+            if (confirm('Workflow triggered! Open Actions page on GitHub?')) {
                 window.open(`https://github.com/${this.owner}/${this.repo}/actions`, '_blank');
             }
 
+            // Refresh runs after delay
             setTimeout(() => this.loadWorkflowRuns(), 3000);
         } catch (error) {
             this.showStatus(`Error: ${error.message}`, 'error');
