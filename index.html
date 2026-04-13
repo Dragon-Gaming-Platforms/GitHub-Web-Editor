@@ -7,92 +7,342 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div class="container">
-        <div class="auth-section">
-            <div class="input-group">
-                <label for="pat-token">Personal Access Token:</label>
-                <input type="password" id="pat-token" placeholder="ghp_xxxxxxxxxxxxx">
-                <button id="save-token">Save Token</button>
+    <div class="app-container">
+        <!-- Main Navigation Sidebar -->
+        <nav class="nav-sidebar">
+            <div class="nav-top">
+                <button class="nav-btn active" data-tab="code" title="Code Editor">
+                    <span class="nav-icon">📝</span>
+                    <span class="nav-label">Code</span>
+                </button>
+                <button class="nav-btn" data-tab="files" title="Import & Export">
+                    <span class="nav-icon">📁</span>
+                    <span class="nav-label">Files</span>
+                </button>
+                <button class="nav-btn" data-tab="pages" title="GitHub Pages">
+                    <span class="nav-icon">🌐</span>
+                    <span class="nav-label">Pages</span>
+                </button>
+                <button class="nav-btn" data-tab="actions" title="Actions">
+                    <span class="nav-icon">▶️</span>
+                    <span class="nav-label">Actions</span>
+                </button>
             </div>
-        </div>
-
-        <div class="repo-section">
-            <div class="input-group">
-                <label for="repo-owner">Owner:</label>
-                <input type="text" id="repo-owner" placeholder="username">
-                
-                <label for="repo-name">Repository:</label>
-                <input type="text" id="repo-name" placeholder="repo-name">
-                
-                <label for="branch">Branch:</label>
-                <input type="text" id="branch" placeholder="main" value="main">
-                
-                <button id="load-repo">Load Repository</button>
+            <div class="nav-bottom">
+                <button class="nav-btn" data-tab="settings" title="Settings">
+                    <span class="nav-icon">⚙️</span>
+                    <span class="nav-label">Settings</span>
+                </button>
             </div>
-        </div>
+        </nav>
 
-        <div class="main-content">
-            <div class="sidebar">
-                <div class="sidebar-header">
-                    <h3>Files</h3>
-                    <button id="refresh-files" title="Refresh">🔄</button>
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Code Editor Tab -->
+            <div class="tab-content active" id="tab-code">
+                <div class="tab-header">
+                    <h2>Code Editor</h2>
+                    <div class="repo-info" id="repo-info-code"></div>
                 </div>
-                <div class="sidebar-actions">
-                    <button id="import-file" title="Import File">📥 File</button>
-                    <button id="import-folder" title="Import Folder">📁 Folder</button>
-                    <button id="export-file" title="Export File" disabled>📤 File</button>
-                    <button id="export-folder" title="Export All">💾 All</button>
+                
+                <div class="code-layout">
+                    <div class="file-sidebar">
+                        <div class="file-sidebar-header">
+                            <h3>Files</h3>
+                            <button id="refresh-files" title="Refresh">🔄</button>
+                        </div>
+                        <div id="file-tree"></div>
+                    </div>
+
+                    <div class="editor-panel">
+                        <div class="editor-toolbar">
+                            <span id="current-file">No file selected</span>
+                            <div class="editor-actions">
+                                <button id="new-file">New File</button>
+                                <button id="save-file" disabled>Save</button>
+                                <button id="delete-file" disabled>Delete</button>
+                            </div>
+                        </div>
+                        <textarea id="editor" placeholder="Select a file or create a new one..."></textarea>
+                        <div class="editor-status">
+                            <span id="file-info"></span>
+                        </div>
+                    </div>
                 </div>
-                <div id="file-tree"></div>
+            </div>
+
+            <!-- Import/Export Tab -->
+            <div class="tab-content" id="tab-files">
+                <div class="tab-header">
+                    <h2>Import & Export</h2>
+                </div>
+
+                <div class="files-layout">
+                    <div class="files-section">
+                        <div class="section-card">
+                            <h3>📥 Import Files</h3>
+                            <p>Import files from your computer to the repository.</p>
+                            
+                            <div class="import-options">
+                                <div class="import-option">
+                                    <button id="import-file" class="large-btn">
+                                        <span class="btn-icon">📄</span>
+                                        <span class="btn-text">Import Files</span>
+                                    </button>
+                                    <p>Select one or more files to import</p>
+                                </div>
+                                
+                                <div class="import-option">
+                                    <button id="import-folder" class="large-btn">
+                                        <span class="btn-icon">📁</span>
+                                        <span class="btn-text">Import Folder</span>
+                                    </button>
+                                    <p>Import an entire folder with structure</p>
+                                </div>
+                            </div>
+
+                            <div id="pending-imports" class="pending-list"></div>
+                        </div>
+
+                        <div class="section-card">
+                            <h3>📤 Export Files</h3>
+                            <p>Download files from the repository to your computer.</p>
+                            
+                            <div class="export-options">
+                                <div class="export-option">
+                                    <button id="export-current" class="large-btn" disabled>
+                                        <span class="btn-icon">📄</span>
+                                        <span class="btn-text">Export Current File</span>
+                                    </button>
+                                    <p>Download the currently selected file</p>
+                                </div>
+                                
+                                <div class="export-option">
+                                    <button id="export-all" class="large-btn">
+                                        <span class="btn-icon">💾</span>
+                                        <span class="btn-text">Export All Files</span>
+                                    </button>
+                                    <p>Download all repository files as JSON</p>
+                                </div>
+
+                                <div class="export-option">
+                                    <button id="export-zip" class="large-btn">
+                                        <span class="btn-icon">🗜️</span>
+                                        <span class="btn-text">Download as ZIP</span>
+                                    </button>
+                                    <p>Download repository as ZIP archive</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="section-card">
+                            <h3>📨 Batch Commit</h3>
+                            <p>Commit all pending imports at once.</p>
+                            
+                            <div class="batch-commit">
+                                <div class="input-group">
+                                    <label for="batch-commit-message">Commit Message:</label>
+                                    <input type="text" id="batch-commit-message" placeholder="Add imported files">
+                                </div>
+                                <button id="batch-commit-btn" class="primary-btn" disabled>
+                                    Commit All Pending Files
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <input type="file" id="file-input" multiple style="display: none;">
                 <input type="file" id="folder-input" webkitdirectory style="display: none;">
             </div>
 
-            <div class="editor-container">
-                <div class="editor-header">
-                    <span id="current-file">No file selected</span>
-                    <div class="editor-actions">
-                        <button id="run-workflow" style="display: none;">▶️ Run Workflow</button>
-                        <button id="new-file">New File</button>
-                        <button id="save-file" disabled>Save File</button>
-                        <button id="delete-file" disabled>Delete File</button>
+            <!-- GitHub Pages Tab -->
+            <div class="tab-content" id="tab-pages">
+                <div class="tab-header">
+                    <h2>GitHub Pages</h2>
+                    <button id="refresh-pages" class="icon-btn">🔄 Refresh</button>
+                </div>
+
+                <div class="pages-layout">
+                    <div class="section-card">
+                        <h3>📊 Pages Status</h3>
+                        <div id="pages-status" class="status-display">
+                            <p class="muted">Load a repository to view Pages status</p>
+                        </div>
+                    </div>
+
+                    <div class="section-card">
+                        <h3>⚙️ Pages Configuration</h3>
+                        <div id="pages-config">
+                            <div class="config-group">
+                                <label>Source Branch:</label>
+                                <select id="pages-branch">
+                                    <option value="">Select branch</option>
+                                </select>
+                            </div>
+
+                            <div class="config-group">
+                                <label>Source Folder:</label>
+                                <select id="pages-path">
+                                    <option value="/">/root</option>
+                                    <option value="/docs">/docs</option>
+                                </select>
+                            </div>
+
+                            <div class="config-actions">
+                                <button id="enable-pages" class="primary-btn">Enable Pages</button>
+                                <button id="disable-pages" class="danger-btn">Disable Pages</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="section-card">
+                        <h3>🚀 Deployments</h3>
+                        <div id="deployments-list" class="deployments">
+                            <p class="muted">No deployments found</p>
+                        </div>
+                    </div>
+
+                    <div class="section-card">
+                        <h3>🔗 Quick Links</h3>
+                        <div class="quick-links">
+                            <a id="pages-url" href="#" target="_blank" class="link-btn disabled">
+                                🌐 Visit Site
+                            </a>
+                            <a id="pages-settings-url" href="#" target="_blank" class="link-btn disabled">
+                                ⚙️ Pages Settings
+                            </a>
+                            <a id="repo-url" href="#" target="_blank" class="link-btn disabled">
+                                📂 Repository
+                            </a>
+                        </div>
                     </div>
                 </div>
-                <textarea id="editor" placeholder="Select a file or create a new one..."></textarea>
-                <div class="editor-footer">
-                    <span id="file-info"></span>
+            </div>
+
+            <!-- Actions Tab -->
+            <div class="tab-content" id="tab-actions">
+                <div class="tab-header">
+                    <h2>GitHub Actions</h2>
+                    <button id="refresh-actions" class="icon-btn">🔄 Refresh</button>
+                </div>
+
+                <div class="actions-layout">
+                    <div class="section-card">
+                        <h3>📋 Workflows</h3>
+                        <div id="workflows-list" class="workflows">
+                            <p class="muted">Load a repository to view workflows</p>
+                        </div>
+                    </div>
+
+                    <div class="section-card">
+                        <h3>▶️ Run Workflow</h3>
+                        <div id="run-workflow-panel">
+                            <div class="config-group">
+                                <label>Select Workflow:</label>
+                                <select id="workflow-select">
+                                    <option value="">Select a workflow</option>
+                                </select>
+                            </div>
+
+                            <div class="config-group">
+                                <label>Branch/Tag/SHA:</label>
+                                <input type="text" id="workflow-ref" placeholder="main">
+                            </div>
+
+                            <div id="workflow-inputs-container"></div>
+
+                            <button id="trigger-workflow" class="primary-btn" disabled>
+                                ▶️ Run Workflow
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="section-card">
+                        <h3>📜 Recent Runs</h3>
+                        <div id="workflow-runs" class="runs-list">
+                            <p class="muted">No recent runs</p>
+                        </div>
+                    </div>
                 </div>
             </div>
-        </div>
 
-        <div class="commit-section">
-            <div class="input-group">
-                <label for="commit-message">Commit Message:</label>
-                <input type="text" id="commit-message" placeholder="Update files">
-                <button id="commit-push" disabled>Commit & Push</button>
-            </div>
-        </div>
-
-        <div id="status" class="status"></div>
-    </div>
-
-    <!-- Workflow Modal -->
-    <div id="workflow-modal" class="modal">
-        <div class="modal-content">
-            <h3>Run GitHub Actions Workflow</h3>
-            <div class="modal-body">
-                <div class="input-group">
-                    <label for="workflow-ref">Branch/Tag/SHA:</label>
-                    <input type="text" id="workflow-ref" placeholder="main">
+            <!-- Settings Tab -->
+            <div class="tab-content" id="tab-settings">
+                <div class="tab-header">
+                    <h2>Settings</h2>
                 </div>
-                <div id="workflow-inputs"></div>
+
+                <div class="settings-layout">
+                    <div class="section-card">
+                        <h3>🔑 Authentication</h3>
+                        <div class="config-group">
+                            <label for="pat-token">Personal Access Token:</label>
+                            <input type="password" id="pat-token" placeholder="ghp_xxxxxxxxxxxxx">
+                            <small>Token is stored in localStorage</small>
+                        </div>
+                        <button id="save-token" class="primary-btn">Save Token</button>
+                    </div>
+
+                    <div class="section-card">
+                        <h3>📦 Repository</h3>
+                        <div class="config-group">
+                            <label for="repo-owner">Owner:</label>
+                            <input type="text" id="repo-owner" placeholder="username">
+                        </div>
+                        
+                        <div class="config-group">
+                            <label for="repo-name">Repository:</label>
+                            <input type="text" id="repo-name" placeholder="repo-name">
+                        </div>
+                        
+                        <div class="config-group">
+                            <label for="branch">Branch:</label>
+                            <input type="text" id="branch" placeholder="main" value="main">
+                        </div>
+
+                        <button id="load-repo" class="primary-btn">Load Repository</button>
+                    </div>
+
+                    <div class="section-card">
+                        <h3>🎨 Editor Settings</h3>
+                        <div class="config-group">
+                            <label for="font-size">Font Size:</label>
+                            <select id="font-size">
+                                <option value="12">12px</option>
+                                <option value="14" selected>14px</option>
+                                <option value="16">16px</option>
+                                <option value="18">18px</option>
+                            </select>
+                        </div>
+                        
+                        <div class="config-group">
+                            <label for="tab-size">Tab Size:</label>
+                            <select id="tab-size">
+                                <option value="2">2 spaces</option>
+                                <option value="4" selected>4 spaces</option>
+                            </select>
+                        </div>
+
+                        <div class="config-group">
+                            <label>
+                                <input type="checkbox" id="word-wrap" checked>
+                                Word Wrap
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="section-card">
+                        <h3>ℹ️ About</h3>
+                        <p>GitHub Repository Editor</p>
+                        <p class="muted">A web-based editor for GitHub repositories with support for GitHub Pages and Actions.</p>
+                    </div>
+                </div>
             </div>
-            <div class="modal-actions">
-                <button id="cancel-workflow">Cancel</button>
-                <button id="confirm-workflow">Run Workflow</button>
-            </div>
-        </div>
+        </main>
     </div>
+
+    <div id="status" class="status"></div>
 
     <script src="script.js"></script>
 </body>
