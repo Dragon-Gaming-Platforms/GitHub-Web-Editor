@@ -18,20 +18,12 @@ class GitHubEditor {
 
     initializeElements() {
         this.elements = {
-            // Navigation
-            navBtns: document.querySelectorAll('.nav-btn'),
-            tabContents: document.querySelectorAll('.tab-content'),
-            
-            // Settings
+            // Auth
             patToken: document.getElementById('pat-token'),
-            saveToken: document.getElementById('save-token'),
             repoOwner: document.getElementById('repo-owner'),
             repoName: document.getElementById('repo-name'),
             branch: document.getElementById('branch'),
             loadRepo: document.getElementById('load-repo'),
-            fontSize: document.getElementById('font-size'),
-            tabSize: document.getElementById('tab-size'),
-            wordWrap: document.getElementById('word-wrap'),
             
             // Code Editor
             fileTree: document.getElementById('file-tree'),
@@ -76,23 +68,27 @@ class GitHubEditor {
             triggerWorkflow: document.getElementById('trigger-workflow'),
             workflowRuns: document.getElementById('workflow-runs'),
             
+            // Settings
+            fontSize: document.getElementById('font-size'),
+            tabSize: document.getElementById('tab-size'),
+            wordWrap: document.getElementById('word-wrap'),
+            
             // Status
             status: document.getElementById('status')
         };
     }
 
     attachEventListeners() {
-        // Navigation
-        this.elements.navBtns.forEach(btn => {
-            btn.addEventListener('click', () => this.switchTab(btn.dataset.tab));
+        // Tab Navigation - Fixed!
+        document.querySelectorAll('.nav-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const tabId = e.currentTarget.dataset.tab;
+                this.switchTab(tabId);
+            });
         });
 
-        // Settings
-        this.elements.saveToken.addEventListener('click', () => this.saveToken());
+        // Repository
         this.elements.loadRepo.addEventListener('click', () => this.loadRepository());
-        this.elements.fontSize.addEventListener('change', () => this.updateEditorSettings());
-        this.elements.tabSize.addEventListener('change', () => this.updateEditorSettings());
-        this.elements.wordWrap.addEventListener('change', () => this.updateEditorSettings());
 
         // Code Editor
         this.elements.refreshFiles.addEventListener('click', () => this.loadRepository());
@@ -120,13 +116,28 @@ class GitHubEditor {
         this.elements.refreshActions.addEventListener('click', () => this.loadActionsInfo());
         this.elements.workflowSelect.addEventListener('change', () => this.onWorkflowSelect());
         this.elements.triggerWorkflow.addEventListener('click', () => this.triggerWorkflow());
+
+        // Settings
+        this.elements.fontSize.addEventListener('change', () => this.updateEditorSettings());
+        this.elements.tabSize.addEventListener('change', () => this.updateEditorSettings());
+        this.elements.wordWrap.addEventListener('change', () => this.updateEditorSettings());
+
+        // Save token on input change
+        this.elements.patToken.addEventListener('change', () => {
+            this.token = this.elements.patToken.value.trim();
+            if (this.token) {
+                localStorage.setItem('github_pat', this.token);
+            }
+        });
     }
 
     loadStoredSettings() {
+        // Load PAT
         if (this.token) {
             this.elements.patToken.value = this.token;
         }
 
+        // Load editor settings
         const settings = JSON.parse(localStorage.getItem('editor_settings') || '{}');
         if (settings.fontSize) this.elements.fontSize.value = settings.fontSize;
         if (settings.tabSize) this.elements.tabSize.value = settings.tabSize;
@@ -144,34 +155,31 @@ class GitHubEditor {
         this.elements.editor.style.tabSize = tabSize;
         this.elements.editor.style.whiteSpace = wordWrap ? 'pre-wrap' : 'pre';
 
-        localStorage.setItem('editor_settings', JSON.stringify({
-            fontSize, tabSize, wordWrap
-        }));
+        localStorage.setItem('editor_settings', JSON.stringify({ fontSize, tabSize, wordWrap }));
     }
 
-    // Navigation
+    // Tab Navigation
     switchTab(tabId) {
-        this.elements.navBtns.forEach(btn => {
-            btn.classList.toggle('active', btn.dataset.tab === tabId);
+        // Update nav buttons
+        document.querySelectorAll('.nav-btn').forEach(btn => {
+            if (btn.dataset.tab === tabId) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
         });
 
-        this.elements.tabContents.forEach(tab => {
-            tab.classList.toggle('active', tab.id === `tab-${tabId}`);
+        // Update tab content
+        document.querySelectorAll('.tab-content').forEach(tab => {
+            if (tab.id === `tab-${tabId}`) {
+                tab.classList.add('active');
+            } else {
+                tab.classList.remove('active');
+            }
         });
     }
 
-    // Token Management
-    saveToken() {
-        this.token = this.elements.patToken.value.trim();
-        if (this.token) {
-            localStorage.setItem('github_pat', this.token);
-            this.showStatus('Token saved successfully', 'success');
-        } else {
-            this.showStatus('Please enter a valid token', 'error');
-        }
-    }
-
-    // Base64 Encoding/Decoding with UTF-8 support
+    // Base64 with UTF-8 support
     decodeBase64(base64) {
         try {
             const binaryString = atob(base64);
@@ -200,16 +208,25 @@ class GitHubEditor {
         }
     }
 
-    // Repository Loading
+    // Repository
     async loadRepository() {
+        this.token = this.elements.patToken.value.trim();
         this.owner = this.elements.repoOwner.value.trim();
         this.repo = this.elements.repoName.value.trim();
         this.branch = this.elements.branch.value.trim() || 'main';
 
-        if (!this.token || !this.owner || !this.repo) {
-            this.showStatus('Please provide token, owner, and repository name', 'error');
+        if (!this.token) {
+            this.showStatus('Please enter your Personal Access Token', 'error');
             return;
         }
+
+        if (!this.owner || !this.repo) {
+            this.showStatus('Please enter owner and repository name', 'error');
+            return;
+        }
+
+        // Save token
+        localStorage.setItem('github_pat', this.token);
 
         this.showStatus('Loading repository...', 'info');
 
@@ -218,8 +235,6 @@ class GitHubEditor {
             await this.loadBranches();
             this.updateQuickLinks();
             this.showStatus('Repository loaded successfully', 'success');
-            
-            // Switch to code tab
             this.switchTab('code');
         } catch (error) {
             this.showStatus(`Error: ${error.message}`, 'error');
@@ -335,12 +350,12 @@ class GitHubEditor {
             contentDiv.className = 'folder-content';
             contentDiv.style.display = 'none';
             
-            folderDiv.onclick = (e) => {
+            folderDiv.addEventListener('click', (e) => {
                 e.stopPropagation();
                 const isHidden = contentDiv.style.display === 'none';
                 contentDiv.style.display = isHidden ? 'block' : 'none';
                 folderDiv.textContent = `${isHidden ? '📂' : '📁'} ${key}`;
-            };
+            });
             
             container.appendChild(folderDiv);
             container.appendChild(contentDiv);
@@ -355,7 +370,8 @@ class GitHubEditor {
             
             const icon = this.getFileIcon(key);
             fileDiv.textContent = `${icon} ${key}`;
-            fileDiv.onclick = () => this.loadFile(item.path, item.sha);
+            
+            fileDiv.addEventListener('click', () => this.loadFile(item.path, item.sha));
             container.appendChild(fileDiv);
         });
     }
@@ -392,7 +408,7 @@ class GitHubEditor {
             const data = await response.json();
             
             if (this.isBinaryFile(path)) {
-                this.elements.editor.value = `[Binary file - ${data.size} bytes]\n\nBase64 content:\n${data.content}`;
+                this.elements.editor.value = `[Binary file - ${data.size} bytes]`;
                 this.elements.editor.disabled = true;
             } else {
                 const content = this.decodeBase64(data.content.replace(/\n/g, ''));
@@ -415,9 +431,9 @@ class GitHubEditor {
                 item.classList.toggle('active', item.dataset.path === path);
             });
             
-            this.showStatus('File loaded successfully', 'success');
+            this.showStatus('File loaded', 'success');
         } catch (error) {
-            this.showStatus(`Error loading file: ${error.message}`, 'error');
+            this.showStatus(`Error: ${error.message}`, 'error');
         }
     }
 
@@ -460,12 +476,12 @@ class GitHubEditor {
         }
 
         const content = this.elements.editor.value;
-        const message = prompt('Enter commit message:', `Update ${this.currentFile}`);
+        const message = prompt('Commit message:', `Update ${this.currentFile}`);
         
         if (!message) return;
 
         try {
-            this.showStatus('Saving file...', 'info');
+            this.showStatus('Saving...', 'info');
             
             const url = `https://api.github.com/repos/${this.owner}/${this.repo}/contents/${this.currentFile}`;
             
@@ -499,14 +515,14 @@ class GitHubEditor {
             this.fileContents[this.currentFile] = content;
             delete this.pendingUploads[this.currentFile];
             
-            this.showStatus('File saved successfully', 'success');
+            this.showStatus('File saved!', 'success');
             this.elements.fileInfo.textContent = `Saved | SHA: ${data.content.sha.substring(0, 7)}`;
             this.elements.currentFile.textContent = this.currentFile;
             this.updatePendingList();
             
             await this.fetchRepositoryTree();
         } catch (error) {
-            this.showStatus(`Error saving file: ${error.message}`, 'error');
+            this.showStatus(`Error: ${error.message}`, 'error');
         }
     }
 
@@ -516,15 +532,13 @@ class GitHubEditor {
             return;
         }
 
-        if (!confirm(`Are you sure you want to delete ${this.currentFile}?`)) {
-            return;
-        }
+        if (!confirm(`Delete ${this.currentFile}?`)) return;
 
-        const message = prompt('Enter commit message:', `Delete ${this.currentFile}`);
+        const message = prompt('Commit message:', `Delete ${this.currentFile}`);
         if (!message) return;
 
         try {
-            this.showStatus('Deleting file...', 'info');
+            this.showStatus('Deleting...', 'info');
             
             const url = `https://api.github.com/repos/${this.owner}/${this.repo}/contents/${this.currentFile}`;
             
@@ -543,7 +557,7 @@ class GitHubEditor {
             });
 
             if (!response.ok) {
-                throw new Error(`Failed to delete file: ${response.statusText}`);
+                throw new Error(`Failed to delete: ${response.statusText}`);
             }
 
             delete this.fileContents[this.currentFile];
@@ -557,14 +571,14 @@ class GitHubEditor {
             this.elements.deleteFile.disabled = true;
             this.elements.exportCurrent.disabled = true;
             
-            this.showStatus('File deleted successfully', 'success');
+            this.showStatus('File deleted', 'success');
             await this.fetchRepositoryTree();
         } catch (error) {
-            this.showStatus(`Error deleting file: ${error.message}`, 'error');
+            this.showStatus(`Error: ${error.message}`, 'error');
         }
     }
 
-    // Import/Export Functions
+    // Import/Export
     async handleFileImport(event) {
         const files = event.target.files;
         if (!files.length) return;
@@ -589,7 +603,7 @@ class GitHubEditor {
         
         event.target.value = '';
         this.updatePendingList();
-        this.showStatus(`${files.length} file(s) imported from folder`, 'success');
+        this.showStatus(`${files.length} file(s) imported`, 'success');
     }
 
     async importSingleFile(file, path) {
@@ -616,19 +630,22 @@ class GitHubEditor {
 
         this.elements.batchCommitBtn.disabled = false;
         this.elements.pendingImports.innerHTML = `
-            <h4 style="margin-bottom: 10px; color: #8b949e;">Pending Files (${pendingPaths.length})</h4>
+            <h4>Pending Files (${pendingPaths.length})</h4>
             ${pendingPaths.map(path => `
                 <div class="pending-item">
                     <span>${path}</span>
-                    <button class="remove-btn" onclick="editor.removePending('${path}')">✕</button>
+                    <button class="remove-btn" data-path="${path}">✕</button>
                 </div>
             `).join('')}
         `;
-    }
 
-    removePending(path) {
-        delete this.pendingUploads[path];
-        this.updatePendingList();
+        // Add remove handlers
+        this.elements.pendingImports.querySelectorAll('.remove-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                delete this.pendingUploads[btn.dataset.path];
+                this.updatePendingList();
+            });
+        });
     }
 
     exportCurrentFile() {
@@ -645,20 +662,15 @@ class GitHubEditor {
 
     async exportAllFiles() {
         if (!this.owner || !this.repo) {
-            this.showStatus('Please load a repository first', 'error');
+            this.showStatus('Load a repository first', 'error');
             return;
         }
 
-        this.showStatus('Preparing export...', 'info');
+        this.showStatus('Exporting...', 'info');
 
         try {
             const filePaths = this.getAllFilePaths(this.files);
             
-            if (filePaths.length === 0) {
-                this.showStatus('No files to export', 'error');
-                return;
-            }
-
             const exportData = {
                 repository: `${this.owner}/${this.repo}`,
                 branch: this.branch,
@@ -680,50 +692,41 @@ class GitHubEditor {
                     if (response.ok) {
                         const data = await response.json();
                         if (!this.isBinaryFile(path)) {
-                            const content = this.decodeBase64(data.content.replace(/\n/g, ''));
-                            exportData.files[path] = content;
-                        } else {
-                            exportData.files[path] = `[Binary: ${data.content}]`;
+                            exportData.files[path] = this.decodeBase64(data.content.replace(/\n/g, ''));
                         }
                     }
                     loaded++;
-                    this.showStatus(`Exporting... ${loaded}/${filePaths.length}`, 'info');
+                    this.showStatus(`Exporting ${loaded}/${filePaths.length}...`, 'info');
                 } catch (e) {
                     console.error(`Failed to export ${path}:`, e);
                 }
             }
 
-            this.downloadFile(
-                `${this.repo}-export.json`,
-                JSON.stringify(exportData, null, 2)
-            );
-
+            this.downloadFile(`${this.repo}-export.json`, JSON.stringify(exportData, null, 2));
             this.showStatus(`Exported ${Object.keys(exportData.files).length} files`, 'success');
         } catch (error) {
             this.showStatus(`Export failed: ${error.message}`, 'error');
         }
     }
 
-    async downloadRepoZip() {
+    downloadRepoZip() {
         if (!this.owner || !this.repo) {
-            this.showStatus('Please load a repository first', 'error');
+            this.showStatus('Load a repository first', 'error');
             return;
         }
 
-        const zipUrl = `https://github.com/${this.owner}/${this.repo}/archive/refs/heads/${this.branch}.zip`;
-        window.open(zipUrl, '_blank');
-        this.showStatus('Downloading ZIP archive...', 'success');
+        window.open(`https://github.com/${this.owner}/${this.repo}/archive/refs/heads/${this.branch}.zip`, '_blank');
+        this.showStatus('Downloading ZIP...', 'success');
     }
 
     getAllFilePaths(level, prefix = '') {
         let paths = [];
         Object.keys(level).forEach(key => {
             const item = level[key];
-            const fullPath = prefix ? `${prefix}/${key}` : key;
             if (item.path) {
                 paths.push(item.path);
             } else {
-                paths = paths.concat(this.getAllFilePaths(item, fullPath));
+                paths = paths.concat(this.getAllFilePaths(item, prefix ? `${prefix}/${key}` : key));
             }
         });
         return paths;
@@ -743,21 +746,16 @@ class GitHubEditor {
 
     async batchCommit() {
         const pendingPaths = Object.keys(this.pendingUploads);
-        if (pendingPaths.length === 0) {
-            this.showStatus('No pending files to commit', 'error');
-            return;
-        }
+        if (pendingPaths.length === 0) return;
 
-        const message = this.elements.batchCommitMessage.value.trim() || 'Add imported files';
+        const message = this.elements.batchCommitMessage.value.trim() || 'Add files';
 
-        if (!confirm(`Commit ${pendingPaths.length} file(s) with message: "${message}"?`)) {
-            return;
-        }
+        if (!confirm(`Commit ${pendingPaths.length} file(s)?`)) return;
 
         try {
             let saved = 0;
             for (const [path, content] of Object.entries(this.pendingUploads)) {
-                this.showStatus(`Committing... ${saved + 1}/${pendingPaths.length}`, 'info');
+                this.showStatus(`Committing ${saved + 1}/${pendingPaths.length}...`, 'info');
                 
                 const url = `https://api.github.com/repos/${this.owner}/${this.repo}/contents/${path}`;
                 
@@ -790,36 +788,34 @@ class GitHubEditor {
             }
 
             this.updatePendingList();
-            this.showStatus(`Successfully committed ${saved} files!`, 'success');
+            this.showStatus(`Committed ${saved} files!`, 'success');
             await this.fetchRepositoryTree();
         } catch (error) {
-            this.showStatus(`Error committing files: ${error.message}`, 'error');
+            this.showStatus(`Error: ${error.message}`, 'error');
         }
     }
 
-    // GitHub Pages Functions
+    // GitHub Pages
     async loadPagesInfo() {
         if (!this.owner || !this.repo) {
-            this.showStatus('Please load a repository first', 'error');
+            this.showStatus('Load a repository first', 'error');
             return;
         }
 
         this.showStatus('Loading Pages info...', 'info');
 
         try {
-            // Get Pages info
-            const pagesUrl = `https://api.github.com/repos/${this.owner}/${this.repo}/pages`;
-            const pagesResponse = await fetch(pagesUrl, {
+            const response = await fetch(`https://api.github.com/repos/${this.owner}/${this.repo}/pages`, {
                 headers: {
                     'Authorization': `token ${this.token}`,
                     'Accept': 'application/vnd.github.v3+json'
                 }
             });
 
-            if (pagesResponse.ok) {
-                const pagesData = await pagesResponse.json();
-                this.displayPagesStatus(pagesData);
-            } else if (pagesResponse.status === 404) {
+            if (response.ok) {
+                const data = await response.json();
+                this.displayPagesStatus(data);
+            } else if (response.status === 404) {
                 this.elements.pagesStatus.innerHTML = `
                     <div class="status-row">
                         <span class="status-label">Status</span>
@@ -829,12 +825,10 @@ class GitHubEditor {
                 this.elements.pagesUrl.classList.add('disabled');
             }
 
-            // Get deployments
             await this.loadDeployments();
-
             this.showStatus('Pages info loaded', 'success');
         } catch (error) {
-            this.showStatus(`Error loading Pages info: ${error.message}`, 'error');
+            this.showStatus(`Error: ${error.message}`, 'error');
         }
     }
 
@@ -846,15 +840,11 @@ class GitHubEditor {
             </div>
             <div class="status-row">
                 <span class="status-label">URL</span>
-                <span class="status-value"><a href="${data.html_url}" target="_blank" style="color: #58a6ff;">${data.html_url}</a></span>
+                <span class="status-value"><a href="${data.html_url}" target="_blank">${data.html_url}</a></span>
             </div>
             <div class="status-row">
                 <span class="status-label">Source</span>
                 <span class="status-value">${data.source?.branch || 'N/A'} / ${data.source?.path || '/'}</span>
-            </div>
-            <div class="status-row">
-                <span class="status-label">HTTPS</span>
-                <span class="status-value">${data.https_enforced ? 'Enforced' : 'Not enforced'}</span>
             </div>
         `;
 
@@ -871,8 +861,7 @@ class GitHubEditor {
 
     async loadDeployments() {
         try {
-            const url = `https://api.github.com/repos/${this.owner}/${this.repo}/deployments`;
-            const response = await fetch(url, {
+            const response = await fetch(`https://api.github.com/repos/${this.owner}/${this.repo}/deployments`, {
                 headers: {
                     'Authorization': `token ${this.token}`,
                     'Accept': 'application/vnd.github.v3+json'
@@ -889,12 +878,9 @@ class GitHubEditor {
 
                 this.elements.deploymentsList.innerHTML = deployments.slice(0, 5).map(dep => `
                     <div class="deployment-item">
-                        <div class="deployment-header">
-                            <span class="deployment-env">${dep.environment}</span>
-                            <span class="deployment-status">${new Date(dep.created_at).toLocaleDateString()}</span>
-                        </div>
-                        <div class="deployment-url">
-                            Ref: ${dep.ref}
+                        <div>
+                            <span class="workflow-name">${dep.environment}</span>
+                            <div class="workflow-path">${dep.ref} • ${new Date(dep.created_at).toLocaleDateString()}</div>
                         </div>
                     </div>
                 `).join('');
@@ -909,27 +895,21 @@ class GitHubEditor {
         const path = this.elements.pagesPath.value;
 
         if (!branch) {
-            this.showStatus('Please select a branch', 'error');
+            this.showStatus('Select a branch', 'error');
             return;
         }
 
         try {
-            this.showStatus('Enabling GitHub Pages...', 'info');
+            this.showStatus('Enabling Pages...', 'info');
 
-            const url = `https://api.github.com/repos/${this.owner}/${this.repo}/pages`;
-            const response = await fetch(url, {
+            const response = await fetch(`https://api.github.com/repos/${this.owner}/${this.repo}/pages`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `token ${this.token}`,
                     'Accept': 'application/vnd.github.v3+json',
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({
-                    source: {
-                        branch: branch,
-                        path: path
-                    }
-                })
+                body: JSON.stringify({ source: { branch, path } })
             });
 
             if (!response.ok) {
@@ -937,23 +917,20 @@ class GitHubEditor {
                 throw new Error(error.message || response.statusText);
             }
 
-            this.showStatus('GitHub Pages enabled successfully!', 'success');
+            this.showStatus('Pages enabled!', 'success');
             await this.loadPagesInfo();
         } catch (error) {
-            this.showStatus(`Error enabling Pages: ${error.message}`, 'error');
+            this.showStatus(`Error: ${error.message}`, 'error');
         }
     }
 
     async disablePages() {
-        if (!confirm('Are you sure you want to disable GitHub Pages?')) {
-            return;
-        }
+        if (!confirm('Disable GitHub Pages?')) return;
 
         try {
-            this.showStatus('Disabling GitHub Pages...', 'info');
+            this.showStatus('Disabling Pages...', 'info');
 
-            const url = `https://api.github.com/repos/${this.owner}/${this.repo}/pages`;
-            const response = await fetch(url, {
+            const response = await fetch(`https://api.github.com/repos/${this.owner}/${this.repo}/pages`, {
                 method: 'DELETE',
                 headers: {
                     'Authorization': `token ${this.token}`,
@@ -965,51 +942,47 @@ class GitHubEditor {
                 throw new Error('Failed to disable Pages');
             }
 
-            this.showStatus('GitHub Pages disabled', 'success');
+            this.showStatus('Pages disabled', 'success');
             await this.loadPagesInfo();
         } catch (error) {
-            this.showStatus(`Error disabling Pages: ${error.message}`, 'error');
+            this.showStatus(`Error: ${error.message}`, 'error');
         }
     }
 
-    // GitHub Actions Functions
+    // GitHub Actions
     async loadActionsInfo() {
         if (!this.owner || !this.repo) {
-            this.showStatus('Please load a repository first', 'error');
+            this.showStatus('Load a repository first', 'error');
             return;
         }
 
-        this.showStatus('Loading Actions info...', 'info');
+        this.showStatus('Loading Actions...', 'info');
 
         try {
-            // Get workflows
-            const workflowsUrl = `https://api.github.com/repos/${this.owner}/${this.repo}/actions/workflows`;
-            const workflowsResponse = await fetch(workflowsUrl, {
+            const response = await fetch(`https://api.github.com/repos/${this.owner}/${this.repo}/actions/workflows`, {
                 headers: {
                     'Authorization': `token ${this.token}`,
                     'Accept': 'application/vnd.github.v3+json'
                 }
             });
 
-            if (workflowsResponse.ok) {
-                const data = await workflowsResponse.json();
+            if (response.ok) {
+                const data = await response.json();
                 this.workflows = data.workflows || [];
                 this.displayWorkflows();
             }
 
-            // Get recent runs
             await this.loadWorkflowRuns();
-
-            this.showStatus('Actions info loaded', 'success');
+            this.showStatus('Actions loaded', 'success');
         } catch (error) {
-            this.showStatus(`Error loading Actions info: ${error.message}`, 'error');
+            this.showStatus(`Error: ${error.message}`, 'error');
         }
     }
 
     displayWorkflows() {
         if (this.workflows.length === 0) {
             this.elements.workflowsList.innerHTML = '<p class="muted">No workflows found</p>';
-            this.elements.workflowSelect.innerHTML = '<option value="">No workflows available</option>';
+            this.elements.workflowSelect.innerHTML = '<option value="">No workflows</option>';
             return;
         }
 
@@ -1023,14 +996,13 @@ class GitHubEditor {
             </div>
         `).join('');
 
-        this.elements.workflowSelect.innerHTML = '<option value="">Select a workflow</option>' +
+        this.elements.workflowSelect.innerHTML = '<option value="">Select workflow</option>' +
             this.workflows.map(wf => `<option value="${wf.id}" data-path="${wf.path}">${wf.name}</option>`).join('');
     }
 
     async loadWorkflowRuns() {
         try {
-            const url = `https://api.github.com/repos/${this.owner}/${this.repo}/actions/runs?per_page=10`;
-            const response = await fetch(url, {
+            const response = await fetch(`https://api.github.com/repos/${this.owner}/${this.repo}/actions/runs?per_page=10`, {
                 headers: {
                     'Authorization': `token ${this.token}`,
                     'Accept': 'application/vnd.github.v3+json'
@@ -1057,7 +1029,7 @@ class GitHubEditor {
                 `).join('');
             }
         } catch (e) {
-            console.error('Failed to load workflow runs:', e);
+            console.error('Failed to load runs:', e);
         }
     }
 
@@ -1068,14 +1040,12 @@ class GitHubEditor {
 
         if (!workflowId) return;
 
-        // Try to load workflow file and parse inputs
         const selectedOption = this.elements.workflowSelect.selectedOptions[0];
         const workflowPath = selectedOption.dataset.path;
 
         if (workflowPath) {
             try {
-                const url = `https://api.github.com/repos/${this.owner}/${this.repo}/contents/${workflowPath}?ref=${this.branch}`;
-                const response = await fetch(url, {
+                const response = await fetch(`https://api.github.com/repos/${this.owner}/${this.repo}/contents/${workflowPath}?ref=${this.branch}`, {
                     headers: {
                         'Authorization': `token ${this.token}`,
                         'Accept': 'application/vnd.github.v3+json'
@@ -1089,14 +1059,12 @@ class GitHubEditor {
 
                     if (inputs.length > 0) {
                         this.elements.workflowInputsContainer.innerHTML = `
-                            <h4 style="margin-bottom: 10px; color: #8b949e;">Workflow Inputs</h4>
+                            <h4>Workflow Inputs</h4>
                             ${inputs.map(input => `
                                 <div class="workflow-input-group">
                                     <label>${input.name}${input.required ? ' *' : ''}</label>
-                                    <input type="text" 
-                                           data-input-name="${input.name}" 
-                                           placeholder="${input.default || ''}"
-                                           value="${input.default || ''}">
+                                    <input type="text" data-input-name="${input.name}" 
+                                           placeholder="${input.default || ''}" value="${input.default || ''}">
                                     ${input.description ? `<small>${input.description}</small>` : ''}
                                 </div>
                             `).join('')}
@@ -1104,40 +1072,33 @@ class GitHubEditor {
                     }
                 }
             } catch (e) {
-                console.error('Failed to load workflow inputs:', e);
+                console.error('Failed to load workflow:', e);
             }
         }
     }
 
     parseWorkflowInputs(yamlContent) {
         const inputs = [];
-        
-        const workflowDispatchMatch = yamlContent.match(/workflow_dispatch:\s*\n([\s\S]*?)(?=\n\s*\w+:|$)/);
-        if (!workflowDispatchMatch) return inputs;
+        const match = yamlContent.match(/workflow_dispatch:\s*\n([\s\S]*?)(?=\n\s*\w+:|$)/);
+        if (!match) return inputs;
 
-        const inputsMatch = workflowDispatchMatch[1].match(/inputs:\s*\n([\s\S]*?)(?=\n\s{2}\w+:|$)/);
+        const inputsMatch = match[1].match(/inputs:\s*\n([\s\S]*?)(?=\n\s{2}\w+:|$)/);
         if (!inputsMatch) return inputs;
 
-        const inputsSection = inputsMatch[1];
         const inputRegex = /(\w+):\s*\n([\s\S]*?)(?=\n\s{6}\w+:|\n\s{4}\w+:|$)/g;
-        
-        let match;
-        while ((match = inputRegex.exec(inputsSection)) !== null) {
-            const inputName = match[1];
-            const inputDetails = match[2];
-            
-            const descMatch = inputDetails.match(/description:\s*['"]?([^'"\n]+)['"]?/);
-            const requiredMatch = inputDetails.match(/required:\s*(true|false)/);
-            const defaultMatch = inputDetails.match(/default:\s*['"]?([^'"\n]+)['"]?/);
+        let m;
+        while ((m = inputRegex.exec(inputsMatch[1])) !== null) {
+            const descMatch = m[2].match(/description:\s*['"]?([^'"\n]+)['"]?/);
+            const requiredMatch = m[2].match(/required:\s*(true|false)/);
+            const defaultMatch = m[2].match(/default:\s*['"]?([^'"\n]+)['"]?/);
             
             inputs.push({
-                name: inputName,
+                name: m[1],
                 description: descMatch ? descMatch[1] : '',
                 required: requiredMatch ? requiredMatch[1] === 'true' : false,
                 default: defaultMatch ? defaultMatch[1] : ''
             });
         }
-
         return inputs;
     }
 
@@ -1147,27 +1108,20 @@ class GitHubEditor {
 
         const ref = this.elements.workflowRef.value.trim() || this.branch;
 
-        // Collect inputs
         const inputs = {};
         this.elements.workflowInputsContainer.querySelectorAll('input[data-input-name]').forEach(input => {
-            const name = input.dataset.inputName;
-            const value = input.value.trim();
-            if (value) {
-                inputs[name] = value;
+            if (input.value.trim()) {
+                inputs[input.dataset.inputName] = input.value.trim();
             }
         });
 
         try {
             this.showStatus('Triggering workflow...', 'info');
 
-            const url = `https://api.github.com/repos/${this.owner}/${this.repo}/actions/workflows/${workflowId}/dispatches`;
-            
             const body = { ref };
-            if (Object.keys(inputs).length > 0) {
-                body.inputs = inputs;
-            }
+            if (Object.keys(inputs).length > 0) body.inputs = inputs;
 
-            const response = await fetch(url, {
+            const response = await fetch(`https://api.github.com/repos/${this.owner}/${this.repo}/actions/workflows/${workflowId}/dispatches`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `token ${this.token}`,
@@ -1182,17 +1136,15 @@ class GitHubEditor {
                 throw new Error(error.message || response.statusText);
             }
 
-            this.showStatus('Workflow triggered successfully!', 'success');
+            this.showStatus('Workflow triggered!', 'success');
             
-            const actionsUrl = `https://github.com/${this.owner}/${this.repo}/actions`;
-            if (confirm('Workflow triggered! Open GitHub Actions page?')) {
-                window.open(actionsUrl, '_blank');
+            if (confirm('Open Actions page?')) {
+                window.open(`https://github.com/${this.owner}/${this.repo}/actions`, '_blank');
             }
 
-            // Refresh runs after a delay
             setTimeout(() => this.loadWorkflowRuns(), 3000);
         } catch (error) {
-            this.showStatus(`Failed to trigger workflow: ${error.message}`, 'error');
+            this.showStatus(`Error: ${error.message}`, 'error');
         }
     }
 
@@ -1209,7 +1161,6 @@ class GitHubEditor {
 }
 
 // Initialize
-let editor;
 document.addEventListener('DOMContentLoaded', () => {
-    editor = new GitHubEditor();
+    window.editor = new GitHubEditor();
 });
