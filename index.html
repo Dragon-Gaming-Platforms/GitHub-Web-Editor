@@ -49,6 +49,14 @@
                     <span class="nav-icon">▶️</span>
                     <span class="nav-label">Actions</span>
                 </button>
+                <button class="nav-btn" data-tab="manage">
+                    <span class="nav-icon">🗂️</span>
+                    <span class="nav-label">Manage</span>
+                </button>
+                <button class="nav-btn" data-tab="codespaces">
+                    <span class="nav-icon">💻</span>
+                    <span class="nav-label">Spaces</span>
+                </button>
                 <button class="nav-btn" data-tab="settings">
                     <span class="nav-icon">⚙️</span>
                     <span class="nav-label">Settings</span>
@@ -56,7 +64,7 @@
             </nav>
 
             <main class="main-content">
-                <!-- Code Editor Tab -->
+                <!-- Code Tab -->
                 <div class="tab-content active" id="tab-code">
                     <div class="code-layout">
                         <div class="file-sidebar">
@@ -76,22 +84,18 @@
                                 </div>
                             </div>
                             <textarea id="editor" placeholder="Select a file or create a new one..."></textarea>
-                            <div class="editor-status">
-                                <span id="file-info"></span>
-                            </div>
+                            <div class="editor-status"><span id="file-info"></span></div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Import/Export Tab -->
+                <!-- Files Tab -->
                 <div class="tab-content" id="tab-files">
-                    <div class="tab-header">
-                        <h2>Import & Export</h2>
-                    </div>
+                    <div class="tab-header"><h2>Import & Export</h2></div>
                     <div class="tab-body">
                         <div class="section-card">
-                            <h3>📥 Import Files</h3>
-                            <p>Import files from your computer to the repository.</p>
+                            <h3>📥 Import</h3>
+                            <p>Import files from your computer into the repository cache.</p>
                             <div class="button-grid">
                                 <button id="import-file" class="large-btn">
                                     <span class="btn-icon">📄</span>
@@ -104,26 +108,24 @@
                             </div>
                             <div id="pending-imports"></div>
                         </div>
-
                         <div class="section-card">
-                            <h3>📤 Export Files</h3>
-                            <p>Download files from the repository to your computer.</p>
+                            <h3>📤 Export</h3>
+                            <p>Download files from the repository.</p>
                             <div class="button-grid">
                                 <button id="export-current" class="large-btn" disabled>
                                     <span class="btn-icon">📄</span>
-                                    <span class="btn-text">Export Current File</span>
+                                    <span class="btn-text">Export Current</span>
                                 </button>
                                 <button id="export-all" class="large-btn">
                                     <span class="btn-icon">💾</span>
-                                    <span class="btn-text">Export All Files</span>
+                                    <span class="btn-text">Export All</span>
                                 </button>
                                 <button id="export-zip" class="large-btn">
                                     <span class="btn-icon">🗜️</span>
-                                    <span class="btn-text">Download as ZIP</span>
+                                    <span class="btn-text">Download ZIP</span>
                                 </button>
                             </div>
                         </div>
-
                         <div class="section-card">
                             <h3>📨 Batch Commit</h3>
                             <div class="inline-form">
@@ -136,27 +138,22 @@
                     <input type="file" id="folder-input" webkitdirectory hidden>
                 </div>
 
-                <!-- GitHub Pages Tab -->
+                <!-- Pages Tab -->
                 <div class="tab-content" id="tab-pages">
                     <div class="tab-header">
                         <h2>GitHub Pages</h2>
                         <button id="refresh-pages" class="icon-btn">🔄 Refresh</button>
                     </div>
                     <div class="tab-body">
-
-                        <!-- Status -->
                         <div class="section-card">
-                            <h3>📊 Pages Status</h3>
+                            <h3>📊 Status</h3>
                             <div id="pages-status" class="status-display">
-                                <p class="muted">Load a repository to view Pages status</p>
+                                <p class="muted">Load a repository first</p>
                             </div>
                         </div>
-
-                        <!-- Deploy from Actions -->
                         <div class="section-card highlight-card">
-                            <h3>🚀 Deploy via GitHub Actions</h3>
-                            <p>Trigger a deployment workflow to publish your site. Only workflows with <code>workflow_dispatch</code> can be triggered manually.</p>
-
+                            <h3>🚀 Deploy via Actions</h3>
+                            <p>Trigger a deployment workflow to publish your site.</p>
                             <div class="config-form">
                                 <div class="config-row">
                                     <label>Select Deploy Workflow:</label>
@@ -164,31 +161,18 @@
                                         <option value="">── Load repository first ──</option>
                                     </select>
                                 </div>
-
                                 <div id="deploy-workflow-info" class="workflow-file-info" style="display:none;"></div>
-
                                 <div class="config-row">
                                     <label>Deploy from Branch/Tag:</label>
                                     <input type="text" id="deploy-ref" placeholder="main">
                                 </div>
-
                                 <div id="deploy-inputs-container"></div>
-
-                                <div id="deploy-dispatch-warning" class="warning-box" style="display:none;">
-                                    ⚠️ This workflow does not have a <code>workflow_dispatch</code> trigger.
-                                </div>
-
+                                <div id="deploy-dispatch-warning" class="warning-box" style="display:none;"></div>
                                 <div class="deploy-actions">
-                                    <button id="trigger-deploy" class="primary-btn deploy-btn" disabled>
-                                        🚀 Deploy Now
-                                    </button>
-                                    <a id="actions-page-link-pages" href="#" target="_blank" class="link-btn disabled">
-                                        View Actions →
-                                    </a>
+                                    <button id="trigger-deploy" class="primary-btn deploy-btn" disabled>🚀 Deploy Now</button>
+                                    <a id="actions-page-link-pages" href="#" target="_blank" class="link-btn disabled">View Actions →</a>
                                 </div>
                             </div>
-
-                            <!-- Live Deploy Status -->
                             <div id="deploy-run-status" class="deploy-run-status" style="display:none;">
                                 <h4>Latest Deployment Run</h4>
                                 <div id="deploy-run-info"></div>
@@ -197,10 +181,8 @@
                                 </div>
                             </div>
                         </div>
-
-                        <!-- Pages Config -->
                         <div class="section-card">
-                            <h3>⚙️ Pages Configuration</h3>
+                            <h3>⚙️ Configuration</h3>
                             <div class="config-form">
                                 <div class="config-row">
                                     <label>Source Type:</label>
@@ -211,13 +193,11 @@
                                 </div>
                                 <div id="branch-source-config">
                                     <div class="config-row">
-                                        <label>Source Branch:</label>
-                                        <select id="pages-branch">
-                                            <option value="">Select branch</option>
-                                        </select>
+                                        <label>Branch:</label>
+                                        <select id="pages-branch"><option value="">Select branch</option></select>
                                     </div>
                                     <div class="config-row">
-                                        <label>Source Folder:</label>
+                                        <label>Folder:</label>
                                         <select id="pages-path">
                                             <option value="/">/root</option>
                                             <option value="/docs">/docs</option>
@@ -225,26 +205,20 @@
                                     </div>
                                 </div>
                                 <div class="config-actions">
-                                    <button id="enable-pages" class="primary-btn">Enable / Update Pages</button>
+                                    <button id="enable-pages" class="primary-btn">Enable / Update</button>
                                     <button id="disable-pages" class="danger-btn">Disable Pages</button>
                                 </div>
                             </div>
                         </div>
-
-                        <!-- Deployments -->
                         <div class="section-card">
                             <h3>📜 Recent Deployments</h3>
-                            <div id="deployments-list">
-                                <p class="muted">No deployments found</p>
-                            </div>
+                            <div id="deployments-list"><p class="muted">No deployments found</p></div>
                         </div>
-
-                        <!-- Quick Links -->
                         <div class="section-card">
                             <h3>🔗 Quick Links</h3>
                             <div class="quick-links">
                                 <a id="pages-url" href="#" target="_blank" class="link-btn disabled">🌐 Visit Site</a>
-                                <a id="pages-settings-url" href="#" target="_blank" class="link-btn disabled">⚙️ Pages Settings</a>
+                                <a id="pages-settings-url" href="#" target="_blank" class="link-btn disabled">⚙️ Settings</a>
                                 <a id="repo-url" href="#" target="_blank" class="link-btn disabled">📂 Repository</a>
                             </div>
                         </div>
@@ -260,59 +234,265 @@
                     <div class="tab-body">
                         <div class="section-card highlight-card">
                             <h3>▶️ Run Workflow</h3>
-                            <p>Select a workflow file and trigger it manually.</p>
+                            <p>Select any .yml file and trigger it manually.</p>
                             <div class="config-form">
                                 <div class="config-row">
                                     <label>Workflow File:</label>
                                     <select id="workflow-file-select" class="workflow-select">
-                                        <option value="">── Load repository to see workflows ──</option>
+                                        <option value="">── Load repository first ──</option>
                                     </select>
                                 </div>
                                 <div id="workflow-file-info" class="workflow-file-info"></div>
                                 <div class="config-row">
-                                    <label>Run on Branch/Tag/SHA:</label>
+                                    <label>Branch/Tag/SHA:</label>
                                     <input type="text" id="workflow-ref" placeholder="main">
                                 </div>
                                 <div id="workflow-inputs-container"></div>
-                                <div id="workflow-dispatch-warning" class="warning-box" style="display:none;">
-                                    ⚠️ This workflow does not have <code>workflow_dispatch</code> trigger.
+                                <div id="workflow-dispatch-warning" class="warning-box" style="display:none;"></div>
+                                <button id="trigger-workflow" class="primary-btn trigger-btn" disabled>▶️ Run Workflow</button>
+                            </div>
+                        </div>
+                        <div class="section-card">
+                            <h3>📋 Registered Workflows</h3>
+                            <div id="workflows-list"><p class="muted">Load a repository first</p></div>
+                        </div>
+                        <div class="section-card">
+                            <h3>📜 Recent Runs</h3>
+                            <div id="workflow-runs"><p class="muted">No recent runs</p></div>
+                            <div class="section-footer">
+                                <a id="actions-page-link" href="#" target="_blank" class="link-btn disabled">View all on GitHub →</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Manage Tab -->
+                <div class="tab-content" id="tab-manage">
+                    <div class="tab-header"><h2>Repository & Branch Management</h2></div>
+                    <div class="tab-body">
+
+                        <!-- Repositories -->
+                        <div class="section-card">
+                            <h3>📦 Repository Management</h3>
+                            <p>Create, rename, or delete repositories on your account.</p>
+                            <div class="manage-grid">
+                                <div class="manage-card">
+                                    <div class="manage-card-icon">➕</div>
+                                    <h4>Create Repository</h4>
+                                    <div class="config-form">
+                                        <div class="config-row">
+                                            <label>Name:</label>
+                                            <input type="text" id="new-repo-name" placeholder="my-new-repo">
+                                        </div>
+                                        <div class="config-row">
+                                            <label>Description:</label>
+                                            <input type="text" id="new-repo-desc" placeholder="Optional description">
+                                        </div>
+                                        <div class="config-row">
+                                            <label>Visibility:</label>
+                                            <select id="new-repo-visibility">
+                                                <option value="public">Public</option>
+                                                <option value="private">Private</option>
+                                            </select>
+                                        </div>
+                                        <div class="config-row">
+                                            <label class="checkbox-label">
+                                                <input type="checkbox" id="new-repo-readme" checked>
+                                                Initialize with README
+                                            </label>
+                                        </div>
+                                        <div class="config-row">
+                                            <label class="checkbox-label">
+                                                <input type="checkbox" id="new-repo-codespace-yml">
+                                                Add Codespace workflows
+                                            </label>
+                                        </div>
+                                        <button id="create-repo-btn" class="primary-btn">➕ Create Repository</button>
+                                    </div>
                                 </div>
-                                <button id="trigger-workflow" class="primary-btn trigger-btn" disabled>
-                                    ▶️ Run Workflow
+
+                                <div class="manage-card">
+                                    <div class="manage-card-icon">✏️</div>
+                                    <h4>Rename Repository</h4>
+                                    <p class="muted">Renames the currently loaded repository.</p>
+                                    <div class="config-form">
+                                        <div class="config-row">
+                                            <label>Current:</label>
+                                            <input type="text" id="rename-repo-current" placeholder="Load a repo first" disabled>
+                                        </div>
+                                        <div class="config-row">
+                                            <label>New Name:</label>
+                                            <input type="text" id="rename-repo-new" placeholder="new-name">
+                                        </div>
+                                        <button id="rename-repo-btn" class="primary-btn" disabled>✏️ Rename</button>
+                                    </div>
+                                </div>
+
+                                <div class="manage-card danger-card">
+                                    <div class="manage-card-icon">🗑️</div>
+                                    <h4>Delete Repository</h4>
+                                    <p class="muted">Permanently deletes the currently loaded repository. This cannot be undone.</p>
+                                    <div class="config-form">
+                                        <div class="config-row">
+                                            <label>Type repo name to confirm:</label>
+                                            <input type="text" id="delete-repo-confirm" placeholder="repo-name">
+                                        </div>
+                                        <button id="delete-repo-btn" class="danger-btn" disabled>🗑️ Delete Repository</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Branches -->
+                        <div class="section-card">
+                            <h3>🌿 Branch Management</h3>
+                            <p>Manage branches on the currently loaded repository.</p>
+                            <div class="manage-grid">
+                                <div class="manage-card">
+                                    <div class="manage-card-icon">🌱</div>
+                                    <h4>Create Branch</h4>
+                                    <div class="config-form">
+                                        <div class="config-row">
+                                            <label>New Branch Name:</label>
+                                            <input type="text" id="new-branch-name" placeholder="feature/my-feature">
+                                        </div>
+                                        <div class="config-row">
+                                            <label>From Branch:</label>
+                                            <select id="new-branch-from">
+                                                <option value="">Load a repo first</option>
+                                            </select>
+                                        </div>
+                                        <button id="create-branch-btn" class="primary-btn" disabled>🌱 Create Branch</button>
+                                    </div>
+                                </div>
+
+                                <div class="manage-card">
+                                    <div class="manage-card-icon">✏️</div>
+                                    <h4>Rename Branch</h4>
+                                    <div class="config-form">
+                                        <div class="config-row">
+                                            <label>Branch to Rename:</label>
+                                            <select id="rename-branch-select">
+                                                <option value="">Load a repo first</option>
+                                            </select>
+                                        </div>
+                                        <div class="config-row">
+                                            <label>New Name:</label>
+                                            <input type="text" id="rename-branch-new" placeholder="new-branch-name">
+                                        </div>
+                                        <button id="rename-branch-btn" class="primary-btn" disabled>✏️ Rename Branch</button>
+                                    </div>
+                                </div>
+
+                                <div class="manage-card danger-card">
+                                    <div class="manage-card-icon">🗑️</div>
+                                    <h4>Delete Branch</h4>
+                                    <p class="muted">Cannot delete the default branch.</p>
+                                    <div class="config-form">
+                                        <div class="config-row">
+                                            <label>Branch to Delete:</label>
+                                            <select id="delete-branch-select">
+                                                <option value="">Load a repo first</option>
+                                            </select>
+                                        </div>
+                                        <button id="delete-branch-btn" class="danger-btn" disabled>🗑️ Delete Branch</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Your Repositories List -->
+                        <div class="section-card">
+                            <h3>📋 Your Repositories</h3>
+                            <div class="inline-form" style="margin-bottom:15px;">
+                                <button id="list-repos-btn" class="primary-btn">Load My Repositories</button>
+                            </div>
+                            <div id="repos-list"><p class="muted">Click above to load your repositories</p></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Codespaces Tab -->
+                <div class="tab-content" id="tab-codespaces">
+                    <div class="tab-header">
+                        <h2>GitHub Codespaces</h2>
+                        <button id="refresh-codespaces" class="icon-btn">🔄 Refresh</button>
+                    </div>
+                    <div class="tab-body">
+
+                        <div class="section-card highlight-card">
+                            <h3>💻 Create Codespace</h3>
+                            <p>Start a new Codespace for the currently loaded repository.</p>
+                            <div class="config-form">
+                                <div class="config-row">
+                                    <label>Branch:</label>
+                                    <select id="codespace-branch">
+                                        <option value="">Load a repo first</option>
+                                    </select>
+                                </div>
+                                <div class="config-row">
+                                    <label>Machine Type:</label>
+                                    <select id="codespace-machine">
+                                        <option value="basicLinux32gb">Basic (2 cores, 4GB RAM)</option>
+                                        <option value="standardLinux32gb">Standard (4 cores, 8GB RAM)</option>
+                                        <option value="premiumLinux">Premium (8 cores, 16GB RAM)</option>
+                                        <option value="largePremiumLinux">Large (16 cores, 32GB RAM)</option>
+                                    </select>
+                                </div>
+                                <div class="config-row">
+                                    <label>Display Name (optional):</label>
+                                    <input type="text" id="codespace-display-name" placeholder="My Codespace">
+                                </div>
+                                <div class="config-row">
+                                    <label>Retention Period (days):</label>
+                                    <select id="codespace-retention">
+                                        <option value="0">No retention (delete on stop)</option>
+                                        <option value="1">1 day</option>
+                                        <option value="7" selected>7 days</option>
+                                        <option value="30">30 days</option>
+                                    </select>
+                                </div>
+                                <button id="create-codespace-btn" class="primary-btn codespace-btn" disabled>
+                                    💻 Create Codespace
                                 </button>
                             </div>
                         </div>
 
                         <div class="section-card">
-                            <h3>📋 Registered Workflows</h3>
-                            <p class="muted">Workflows registered with GitHub Actions</p>
-                            <div id="workflows-list">
-                                <p class="muted">Load a repository to view workflows</p>
+                            <h3>🔧 Codespace Workflows</h3>
+                            <p>Push ready-made workflow files to manage Codespaces via Actions.</p>
+                            <div class="button-grid">
+                                <button id="push-start-workflow" class="large-btn" disabled>
+                                    <span class="btn-icon">▶️</span>
+                                    <span class="btn-text">Push Start Workflow</span>
+                                </button>
+                                <button id="push-stop-workflow" class="large-btn" disabled>
+                                    <span class="btn-icon">⏹️</span>
+                                    <span class="btn-text">Push Stop Workflow</span>
+                                </button>
+                                <button id="push-both-workflows" class="large-btn" disabled>
+                                    <span class="btn-icon">📦</span>
+                                    <span class="btn-text">Push Both Workflows</span>
+                                </button>
                             </div>
+                            <p class="muted" style="margin-top:10px;font-size:12px;">
+                                These workflows will appear in the Actions tab and can be triggered manually.
+                            </p>
                         </div>
 
                         <div class="section-card">
-                            <h3>📜 Recent Runs</h3>
-                            <div id="workflow-runs">
-                                <p class="muted">No recent runs</p>
-                            </div>
-                            <div class="section-footer">
-                                <a id="actions-page-link" href="#" target="_blank" class="link-btn disabled">
-                                    View all runs on GitHub →
-                                </a>
-                            </div>
+                            <h3>📋 Active Codespaces</h3>
+                            <div id="codespaces-list"><p class="muted">Click Refresh to load codespaces</p></div>
                         </div>
                     </div>
                 </div>
 
                 <!-- Settings Tab -->
                 <div class="tab-content" id="tab-settings">
-                    <div class="tab-header">
-                        <h2>Settings</h2>
-                    </div>
+                    <div class="tab-header"><h2>Settings</h2></div>
                     <div class="tab-body">
                         <div class="section-card">
-                            <h3>🎨 Editor Settings</h3>
+                            <h3>🎨 Editor</h3>
                             <div class="config-form">
                                 <div class="config-row">
                                     <label>Font Size:</label>
@@ -341,7 +521,7 @@
                         <div class="section-card">
                             <h3>ℹ️ About</h3>
                             <p>GitHub Repository Editor</p>
-                            <p class="muted">Web-based editor with Pages management and Actions support.</p>
+                            <p class="muted">Full-featured web editor with Pages, Actions, Codespaces and repo management.</p>
                         </div>
                     </div>
                 </div>
