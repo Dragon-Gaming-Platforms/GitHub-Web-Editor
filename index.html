@@ -4,7 +4,201 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GitHub Repository Editor</title>
-    <link rel="stylesheet" href="style.css">
+    <style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0d1117;color:#c9d1d9;line-height:1.6;height:100vh;overflow:hidden}
+.app-container{display:flex;flex-direction:column;height:100vh}
+.top-bar{background:#161b22;border-bottom:1px solid #30363d;padding:8px 16px;flex-shrink:0}
+.auth-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.input-field{display:flex;align-items:center;gap:6px}
+.input-field label{font-size:12px;font-weight:600;color:#8b949e;white-space:nowrap}
+.input-field input{padding:6px 10px;background:#0d1117;border:1px solid #30363d;border-radius:6px;color:#c9d1d9;font-size:13px;width:130px}
+.input-field input:focus{outline:none;border-color:#58a6ff}
+.main-wrapper{display:flex;flex:1;overflow:hidden}
+.nav-sidebar{width:72px;background:#161b22;border-right:1px solid #30363d;display:flex;flex-direction:column;padding:6px 0;gap:2px;flex-shrink:0;overflow-y:auto}
+.nav-btn{width:60px;margin:0 auto;padding:8px 4px;background:transparent;border:none;border-radius:8px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;color:#c9d1d9;transition:background .2s}
+.nav-btn:hover{background:#21262d}
+.nav-btn.active{background:#1f6feb}
+.nav-icon{font-size:16px}
+.nav-label{font-size:9px;color:#8b949e;font-weight:600}
+.nav-btn.active .nav-label{color:#fff}
+.main-content{flex:1;overflow:hidden;display:flex;flex-direction:column}
+.tab-content{display:none;flex-direction:column;flex:1;overflow:hidden}
+.tab-content.active{display:flex}
+.tab-header{padding:10px 18px;background:#161b22;border-bottom:1px solid #30363d;display:flex;justify-content:space-between;align-items:center;flex-shrink:0}
+.tab-header h2{color:#58a6ff;font-size:16px}
+.header-actions{display:flex;gap:8px;align-items:center}
+.tab-body{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:14px}
+.code-layout{flex:1;display:flex;overflow:hidden}
+.file-sidebar{width:240px;background:#161b22;border-right:1px solid #30363d;display:flex;flex-direction:column;overflow:hidden;flex-shrink:0}
+.file-sidebar-header{padding:9px 12px;background:#0d1117;border-bottom:1px solid #30363d;display:flex;justify-content:space-between;align-items:center}
+.file-sidebar-header h3{color:#58a6ff;font-size:13px}
+#file-tree{flex:1;overflow-y:auto;padding:6px}
+.file-item,.folder-item{padding:5px 9px;cursor:pointer;border-radius:5px;margin-bottom:1px;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.file-item:hover,.folder-item:hover{background:#21262d}
+.file-item.active{background:#1f6feb;color:#fff}
+.file-item.has-changes{color:#f0883e}
+.file-item.has-changes::after{content:' ●';font-size:9px}
+.folder-item{font-weight:600;color:#8b949e}
+.folder-content{margin-left:12px}
+.editor-panel{flex:1;display:flex;flex-direction:column;background:#0d1117;overflow:hidden}
+.editor-toolbar{padding:8px 12px;background:#161b22;border-bottom:1px solid #30363d;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
+#current-file{font-weight:600;color:#58a6ff;font-size:12px}
+.editor-actions{display:flex;gap:6px}
+#editor{flex:1;padding:12px;background:#0d1117;border:none;color:#c9d1d9;font-family:'Consolas','Monaco','Courier New',monospace;font-size:14px;line-height:1.6;resize:none}
+#editor:focus{outline:none}
+.editor-status{padding:5px 12px;background:#161b22;border-top:1px solid #30363d;font-size:11px;color:#8b949e}
+.section-card{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:16px}
+.section-card.highlight-card{border-color:#1f6feb;background:linear-gradient(135deg,#161b22 0%,#1a2332 100%)}
+.section-card h3{color:#58a6ff;margin-bottom:8px;font-size:14px}
+.section-card>p{color:#8b949e;margin-bottom:12px;font-size:13px}
+.section-footer{margin-top:12px;padding-top:12px;border-top:1px solid #30363d}
+.manage-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
+.manage-card{background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:14px}
+.manage-card.danger-card{border-color:#da3633}
+.manage-card-icon{font-size:22px;margin-bottom:6px}
+.manage-card h4{color:#c9d1d9;margin-bottom:6px;font-size:13px}
+.manage-card>p{color:#8b949e;font-size:12px;margin-bottom:10px}
+.insights-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px}
+.repo-list-item{display:flex;justify-content:space-between;align-items:center;padding:9px 12px;background:#0d1117;border:1px solid #30363d;border-radius:6px;margin-bottom:7px;font-size:13px}
+.repo-info{display:flex;flex-direction:column;gap:2px}
+.repo-name{font-weight:600;color:#58a6ff}
+.repo-meta{font-size:11px;color:#8b949e}
+.pr-item,.issue-item,.release-item,.notif-item,.collab-item,.key-item{padding:12px 14px;background:#0d1117;border:1px solid #30363d;border-radius:6px;margin-bottom:8px}
+.pr-header,.issue-header,.release-header,.notif-header,.collab-header,.key-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px}
+.pr-title,.issue-title,.release-title-text,.notif-title,.collab-name,.key-title{font-weight:600;font-size:13px;color:#c9d1d9}
+.pr-meta,.issue-meta,.release-meta,.notif-meta,.collab-meta,.key-meta{font-size:11px;color:#8b949e;margin-bottom:8px}
+.pr-actions,.issue-actions,.release-actions,.notif-actions,.collab-actions,.key-actions{display:flex;gap:6px;flex-wrap:wrap}
+.small-btn{padding:4px 10px;font-size:11px}
+.badge{display:inline-block;padding:2px 8px;border-radius:12px;font-size:10px;font-weight:600}
+.badge.open{background:#238636;color:#fff}
+.badge.closed{background:#da3633;color:#fff}
+.badge.merged{background:#8957e5;color:#fff}
+.badge.draft{background:#6e7681;color:#fff}
+.badge.prerelease{background:#9e6a03;color:#fff}
+.stat-row{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #21262d;font-size:13px}
+.stat-row:last-child{border-bottom:none}
+.stat-label{color:#8b949e}
+.stat-value{font-weight:600}
+.lang-bar{height:8px;border-radius:4px;background:#30363d;overflow:hidden;margin:8px 0;display:flex}
+.lang-segment{height:100%}
+.lang-legend{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+.lang-item{display:flex;align-items:center;gap:5px;font-size:12px}
+.lang-dot{width:10px;height:10px;border-radius:50%}
+.contributor-item{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #21262d;font-size:13px}
+.contributor-item:last-child{border-bottom:none}
+.contributor-avatar{width:28px;height:28px;border-radius:50%;background:#30363d}
+.contributor-info{flex:1}
+.contributor-name{font-weight:600}
+.contributor-commits{font-size:11px;color:#8b949e}
+.commit-week{display:flex;align-items:flex-end;gap:2px;height:40px;margin-top:8px}
+.commit-bar{flex:1;background:#238636;border-radius:2px;min-height:2px}
+.notif-unread{border-left:3px solid #58a6ff}
+.notif-read{opacity:.6}
+.codespace-item{padding:12px;background:#0d1117;border:1px solid #30363d;border-radius:6px;margin-bottom:8px}
+.codespace-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.codespace-name{font-weight:600;color:#c9d1d9;font-size:13px}
+.codespace-meta{font-size:11px;color:#8b949e;margin-bottom:8px}
+.codespace-actions{display:flex;gap:6px;flex-wrap:wrap}
+.codespace-status{padding:2px 7px;border-radius:10px;font-size:10px;font-weight:600}
+.codespace-status.Available{background:#238636}
+.codespace-status.Shutdown{background:#6e7681}
+.codespace-status.Starting{background:#1f6feb}
+.codespace-status.Stopping{background:#9e6a03}
+button{padding:6px 13px;background:#21262d;color:#fff;border:1px solid #30363d;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;transition:all .2s}
+button:hover{background:#30363d}
+button:disabled{opacity:.5;cursor:not-allowed}
+.primary-btn{background:#238636;border-color:#238636}
+.primary-btn:hover:not(:disabled){background:#2ea043}
+.danger-btn{background:#da3633;border-color:#da3633}
+.danger-btn:hover:not(:disabled){background:#f85149}
+.icon-btn{padding:5px 9px;background:transparent;font-size:12px}
+.deploy-btn{background:#6e40c9;border-color:#6e40c9;font-size:13px;padding:9px 20px}
+.deploy-btn:hover:not(:disabled){background:#8957e5}
+.codespace-btn{background:#1f6feb;border-color:#1f6feb}
+.codespace-btn:hover:not(:disabled){background:#388bfd}
+.trigger-btn{font-size:13px;padding:9px 20px}
+.button-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
+.large-btn{padding:14px;background:#21262d;border:1px solid #30363d;border-radius:8px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:7px;transition:all .2s;color:#c9d1d9}
+.large-btn:hover:not(:disabled){background:#30363d;border-color:#58a6ff}
+.large-btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-icon{font-size:22px}
+.btn-text{font-size:11px;font-weight:600}
+.inline-form{display:flex;gap:8px}
+.inline-form input{flex:1;padding:8px 10px;background:#0d1117;border:1px solid #30363d;border-radius:6px;color:#c9d1d9;font-size:13px}
+.config-form{display:flex;flex-direction:column;gap:10px}
+.config-row{display:flex;flex-direction:column;gap:4px}
+.config-row label{font-size:12px;font-weight:600;color:#8b949e}
+.config-row input,.config-row select,.config-row textarea{padding:7px 10px;background:#0d1117;border:1px solid #30363d;border-radius:6px;color:#c9d1d9;font-size:13px;font-family:inherit}
+.config-row input:focus,.config-row select:focus,.config-row textarea:focus{outline:none;border-color:#58a6ff}
+.config-row input:disabled{opacity:.5}
+.config-row textarea{resize:vertical;min-height:80px}
+.config-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
+.checkbox-label{display:flex;align-items:center;gap:7px;cursor:pointer;font-size:13px;color:#c9d1d9}
+.workflow-select{font-family:'Consolas','Monaco','Courier New',monospace;font-size:12px!important}
+.workflow-file-info{padding:9px;background:#0d1117;border-radius:6px;font-size:12px;border-left:3px solid #58a6ff}
+.workflow-file-info .file-path{color:#58a6ff;font-family:monospace;word-break:break-all}
+.workflow-file-info .file-details{margin-top:5px;color:#8b949e}
+.trigger-badge{display:inline-block;padding:1px 6px;border-radius:10px;font-size:10px;font-weight:600;margin-right:3px}
+.trigger-badge.dispatch{background:#238636;color:#fff}
+.trigger-badge.push{background:#1f6feb;color:#fff}
+.trigger-badge.pull_request{background:#a371f7;color:#fff}
+.trigger-badge.schedule{background:#9e6a03;color:#fff}
+.trigger-badge.other{background:#6e7681;color:#fff}
+.warning-box{padding:9px;background:#3d1f00;border:1px solid #9e6a03;border-radius:6px;color:#f0883e;font-size:12px}
+.warning-box code{background:#21262d;padding:1px 4px;border-radius:3px;font-family:monospace}
+.status-display{padding:10px;background:#0d1117;border-radius:6px}
+.status-row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #21262d;font-size:12px}
+.status-row:last-child{border-bottom:none}
+.status-label{color:#8b949e}
+.status-value{font-weight:600}
+.status-value.active{color:#3fb950}
+.status-value.inactive{color:#f85149}
+.status-value a{color:#58a6ff;text-decoration:none}
+.quick-links{display:flex;gap:8px;flex-wrap:wrap}
+.link-btn{display:inline-flex;align-items:center;gap:5px;padding:7px 12px;background:#21262d;border:1px solid #30363d;border-radius:6px;color:#58a6ff;text-decoration:none;font-weight:600;font-size:12px;transition:all .2s}
+.link-btn:hover{background:#30363d}
+.link-btn.disabled{opacity:.5;pointer-events:none}
+.deploy-actions{display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin-top:4px}
+.deploy-run-status{margin-top:16px;padding-top:16px;border-top:1px solid #30363d}
+.deploy-run-status h4{color:#8b949e;font-size:12px;margin-bottom:8px}
+.deploy-run-info{padding:9px;background:#0d1117;border-radius:6px;margin-bottom:8px}
+.deploy-run-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid #21262d;font-size:12px}
+.deploy-run-row:last-child{border-bottom:none}
+.deploy-run-label{color:#8b949e}
+.deploy-run-value{font-weight:600}
+#workflows-list,#workflow-runs,#deployments-list{display:flex;flex-direction:column;gap:7px}
+.workflow-item,.run-item,.deployment-item{display:flex;justify-content:space-between;align-items:center;padding:9px 11px;background:#0d1117;border:1px solid #30363d;border-radius:6px}
+.workflow-name,.run-name{font-weight:600;font-size:13px}
+.workflow-path{font-size:11px;color:#8b949e;font-family:monospace}
+.run-status{padding:2px 7px;border-radius:10px;font-size:10px;font-weight:600;text-transform:uppercase}
+.run-status.success,.run-status.active{background:#238636}
+.run-status.failure{background:#da3633}
+.run-status.pending,.run-status.queued{background:#9e6a03}
+.run-status.in_progress{background:#1f6feb}
+#pending-imports{margin-top:10px}
+#pending-imports h4{color:#8b949e;font-size:12px;margin-bottom:7px}
+.pending-item{display:flex;justify-content:space-between;align-items:center;padding:6px 9px;background:#21262d;border-radius:5px;margin-bottom:3px;font-size:12px}
+.remove-btn{background:transparent;color:#f85149;padding:2px 6px;font-size:11px;border:none}
+#workflow-inputs-container,#deploy-inputs-container{margin-top:4px}
+#workflow-inputs-container h4,#deploy-inputs-container h4{color:#8b949e;font-size:12px;margin-bottom:7px}
+.workflow-input-group{margin-bottom:9px}
+.workflow-input-group label{display:block;font-size:12px;color:#8b949e;margin-bottom:3px}
+.workflow-input-group input,.workflow-input-group select{width:100%;padding:6px 9px;background:#0d1117;border:1px solid #30363d;border-radius:6px;color:#c9d1d9;font-size:13px}
+.workflow-input-group small{font-size:10px;color:#6e7681}
+.cache-indicator{font-size:11px;color:#6e7681;padding:4px 8px;border-radius:6px;border:1px solid #30363d;white-space:nowrap}
+.cache-indicator.has-edits{color:#f0883e;border-color:#9e6a03;background:#1f1700;font-weight:600}
+.muted{color:#6e7681;font-size:13px}
+#branch-source-config{display:flex;flex-direction:column;gap:10px}
+@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+.spinning{display:inline-block;animation:spin 1.5s linear infinite}
+.status{position:fixed;bottom:16px;right:16px;padding:10px 16px;border-radius:6px;font-weight:600;font-size:13px;display:none;max-width:360px;box-shadow:0 8px 24px rgba(0,0,0,.4);z-index:1000}
+.status.success{background:#238636;color:#fff;display:block}
+.status.error{background:#da3633;color:#fff;display:block}
+.status.info{background:#1f6feb;color:#fff;display:block}
+.codespace-btn-small{padding:4px 10px;font-size:11px}
+@media(max-width:768px){.nav-sidebar{width:52px}.nav-label{display:none}.nav-btn{width:42px;padding:8px}.code-layout{flex-direction:column}.file-sidebar{width:100%;height:160px;border-right:none;border-bottom:1px solid #30363d}.manage-grid,.insights-grid{grid-template-columns:1fr}}
+    </style>
 </head>
 <body>
     <div class="app-container">
@@ -662,6 +856,1408 @@
         </div>
     </div>
     <div id="status" class="status"></div>
-    <script src="script.js"></script>
+    <script>
+const CODESPACE_START_WORKFLOW = `name: Start Codespace
+on:
+  workflow_dispatch:
+    inputs:
+      codespace_name:
+        description: 'Codespace name to start (leave blank for newest)'
+        required: false
+        default: ''
+
+jobs:
+  start-codespace:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Start Codespace
+        env:
+          GITHUB_TOKEN: \${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ -z "\${{ github.event.inputs.codespace_name }}" ]; then
+            CODESPACE=$(gh api /user/codespaces --jq '.codespaces | map(select(.repository.full_name == "\${{ github.repository }}")) | sort_by(.last_used_at) | last | .name')
+          else
+            CODESPACE="\${{ github.event.inputs.codespace_name }}"
+          fi
+          echo "Starting codespace: $CODESPACE"
+          gh api --method POST /user/codespaces/$CODESPACE/start
+          echo "Codespace started successfully"
+`;
+
+const CODESPACE_STOP_WORKFLOW = `name: Stop Codespace
+on:
+  workflow_dispatch:
+    inputs:
+      codespace_name:
+        description: 'Codespace name to stop (leave blank for newest)'
+        required: false
+        default: ''
+
+jobs:
+  stop-codespace:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Stop Codespace
+        env:
+          GITHUB_TOKEN: \${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ -z "\${{ github.event.inputs.codespace_name }}" ]; then
+            CODESPACE=$(gh api /user/codespaces --jq '.codespaces | map(select(.repository.full_name == "\${{ github.repository }}")) | sort_by(.last_used_at) | last | .name')
+          else
+            CODESPACE="\${{ github.event.inputs.codespace_name }}"
+          fi
+          echo "Stopping codespace: $CODESPACE"
+          gh api --method POST /user/codespaces/$CODESPACE/stop
+          echo "Codespace stopped successfully"
+`;
+
+class GitHubEditor {
+    constructor() {
+        this.token = localStorage.getItem('github_pat') || '';
+        this.owner = '';
+        this.repo = '';
+        this.branch = 'main';
+        this.currentFile = null;
+        this.files = {};
+        this.fileTree = [];
+        this.fileContents = {};
+        this.fileSHAs = {};
+        this.pendingUploads = {};
+        this.workflows = [];
+        this.ymlFiles = [];
+        this.branches = [];
+        this.cacheKey = '';
+        this._pollTimer = null;
+
+        this.initializeElements();
+        this.attachEventListeners();
+        this.loadStoredSettings();
+    }
+
+    buildCacheKey() { return `ghcache_${this.owner}_${this.repo}_${this.branch}`; }
+
+    saveEditsToCache() {
+        if (!this.cacheKey) return;
+        localStorage.setItem(this.cacheKey, JSON.stringify({
+            owner: this.owner, repo: this.repo, branch: this.branch,
+            timestamp: Date.now(), edits: this.pendingUploads, shas: this.fileSHAs
+        }));
+        this.updateCacheIndicator();
+    }
+
+    loadEditsFromCache() {
+        if (!this.cacheKey) return;
+        try {
+            const raw = localStorage.getItem(this.cacheKey);
+            if (!raw) return;
+            const data = JSON.parse(raw);
+            if (data.edits) { this.pendingUploads = data.edits; this.fileContents = { ...this.fileContents, ...data.edits }; }
+            if (data.shas)  { this.fileSHAs = { ...this.fileSHAs, ...data.shas }; }
+            this.updatePendingList();
+            this.updateCacheIndicator();
+            const n = Object.keys(this.pendingUploads).length;
+            if (n > 0) this.showStatus(`Restored ${n} cached edit(s)`, 'info');
+        } catch (e) { console.error(e); }
+    }
+
+    clearRepoCache() {
+        if (!this.cacheKey) return;
+        localStorage.removeItem(this.cacheKey);
+        this.pendingUploads = {};
+        this.updatePendingList();
+        this.updateCacheIndicator();
+    }
+
+    updateCacheIndicator() {
+        const el = document.getElementById('cache-indicator');
+        if (!el) return;
+        const n = Object.keys(this.pendingUploads).length;
+        el.textContent = n > 0 ? `💾 ${n} unsaved` : 'Cache clear';
+        el.className = n > 0 ? 'cache-indicator has-edits' : 'cache-indicator';
+    }
+
+    initializeElements() {
+        const $ = id => document.getElementById(id);
+        this.elements = {
+            patToken: $('pat-token'), repoOwner: $('repo-owner'), repoName: $('repo-name'),
+            branch: $('branch'), loadRepo: $('load-repo'),
+
+            fileTree: $('file-tree'), refreshFiles: $('refresh-files'),
+            editor: $('editor'), currentFile: $('current-file'), fileInfo: $('file-info'),
+            newFile: $('new-file'), saveFile: $('save-file'), deleteFile: $('delete-file'),
+
+            importFile: $('import-file'), importFolder: $('import-folder'),
+            exportCurrent: $('export-current'), exportAll: $('export-all'), exportZip: $('export-zip'),
+            fileInput: $('file-input'), folderInput: $('folder-input'),
+            pendingImports: $('pending-imports'),
+            batchCommitMessage: $('batch-commit-message'), batchCommitBtn: $('batch-commit-btn'),
+
+            refreshPages: $('refresh-pages'), pagesStatus: $('pages-status'),
+            pagesSourceType: $('pages-source-type'), branchSourceConfig: $('branch-source-config'),
+            pagesBranch: $('pages-branch'), pagesPath: $('pages-path'),
+            enablePages: $('enable-pages'), disablePages: $('disable-pages'),
+            deploymentsList: $('deployments-list'),
+            pagesUrl: $('pages-url'), pagesSettingsUrl: $('pages-settings-url'), repoUrl: $('repo-url'),
+
+            deployWorkflowSelect: $('deploy-workflow-select'), deployWorkflowInfo: $('deploy-workflow-info'),
+            deployRef: $('deploy-ref'), deployInputsContainer: $('deploy-inputs-container'),
+            deployDispatchWarning: $('deploy-dispatch-warning'), triggerDeploy: $('trigger-deploy'),
+            actionsPageLinkPages: $('actions-page-link-pages'),
+            deployRunStatus: $('deploy-run-status'), deployRunInfo: $('deploy-run-info'),
+            pollDeployStatus: $('poll-deploy-status'),
+
+            refreshActions: $('refresh-actions'), workflowsList: $('workflows-list'),
+            workflowFileSelect: $('workflow-file-select'), workflowFileInfo: $('workflow-file-info'),
+            workflowRef: $('workflow-ref'), workflowInputsContainer: $('workflow-inputs-container'),
+            workflowDispatchWarning: $('workflow-dispatch-warning'), triggerWorkflow: $('trigger-workflow'),
+            workflowRuns: $('workflow-runs'), actionsPageLink: $('actions-page-link'),
+
+            newRepoName: $('new-repo-name'), newRepoDesc: $('new-repo-desc'),
+            newRepoVisibility: $('new-repo-visibility'), newRepoReadme: $('new-repo-readme'),
+            newRepoCodespaceYml: $('new-repo-codespace-yml'), createRepoBtn: $('create-repo-btn'),
+            renameRepoCurrent: $('rename-repo-current'), renameRepoNew: $('rename-repo-new'),
+            renameRepoBtn: $('rename-repo-btn'),
+            deleteRepoConfirm: $('delete-repo-confirm'), deleteRepoBtn: $('delete-repo-btn'),
+            newBranchName: $('new-branch-name'), newBranchFrom: $('new-branch-from'),
+            createBranchBtn: $('create-branch-btn'),
+            renameBranchSelect: $('rename-branch-select'), renameBranchNew: $('rename-branch-new'),
+            renameBranchBtn: $('rename-branch-btn'),
+            deleteBranchSelect: $('delete-branch-select'), deleteBranchBtn: $('delete-branch-btn'),
+            listReposBtn: $('list-repos-btn'), reposList: $('repos-list'),
+
+            refreshCodespaces: $('refresh-codespaces'),
+            codespaceBranch: $('codespace-branch'), codespaceMachine: $('codespace-machine'),
+            codespaceDisplayName: $('codespace-display-name'), codespaceRetention: $('codespace-retention'),
+            createCodespaceBtn: $('create-codespace-btn'),
+            pushStartWorkflow: $('push-start-workflow'), pushStopWorkflow: $('push-stop-workflow'),
+            pushBothWorkflows: $('push-both-workflows'),
+            codespacesList: $('codespaces-list'),
+
+            fontSize: $('font-size'), tabSize: $('tab-size'), wordWrap: $('word-wrap'),
+            status: $('status')
+        };
+    }
+
+    attachEventListeners() {
+        document.querySelectorAll('.nav-btn').forEach(btn =>
+            btn.addEventListener('click', e => this.switchTab(e.currentTarget.dataset.tab)));
+
+        this.elements.loadRepo.addEventListener('click', () => this.loadRepository());
+        this.elements.refreshFiles.addEventListener('click', () => this.loadRepository());
+        this.elements.newFile.addEventListener('click', () => this.createNewFile());
+        this.elements.saveFile.addEventListener('click', () => this.saveCurrentFile());
+        this.elements.deleteFile.addEventListener('click', () => this.deleteCurrentFile());
+        this.elements.editor.addEventListener('input', () => this.onEditorChange());
+
+        this.elements.importFile.addEventListener('click', () => this.elements.fileInput.click());
+        this.elements.importFolder.addEventListener('click', () => this.elements.folderInput.click());
+        this.elements.fileInput.addEventListener('change', e => this.handleFileImport(e));
+        this.elements.folderInput.addEventListener('change', e => this.handleFolderImport(e));
+        this.elements.exportCurrent.addEventListener('click', () => this.exportCurrentFile());
+        this.elements.exportAll.addEventListener('click', () => this.exportAllFiles());
+        this.elements.exportZip.addEventListener('click', () => this.downloadRepoZip());
+        this.elements.batchCommitBtn.addEventListener('click', () => this.batchCommit());
+
+        this.elements.refreshPages.addEventListener('click', () => this.loadPagesInfo());
+        this.elements.pagesSourceType.addEventListener('change', () => this.onSourceTypeChange());
+        this.elements.enablePages.addEventListener('click', () => this.enablePages());
+        this.elements.disablePages.addEventListener('click', () => this.disablePages());
+        this.elements.deployWorkflowSelect.addEventListener('change', () => this.onDeployWorkflowSelect());
+        this.elements.triggerDeploy.addEventListener('click', () => this.triggerDeploy());
+        this.elements.pollDeployStatus.addEventListener('click', () => this.pollLatestDeployRun());
+
+        this.elements.refreshActions.addEventListener('click', () => this.loadActionsInfo());
+        this.elements.workflowFileSelect.addEventListener('change', () => this.onWorkflowFileSelect());
+        this.elements.triggerWorkflow.addEventListener('click', () => this.triggerWorkflow());
+
+        this.elements.createRepoBtn.addEventListener('click', () => this.createRepository());
+        this.elements.renameRepoBtn.addEventListener('click', () => this.renameRepository());
+        this.elements.deleteRepoBtn.addEventListener('click', () => this.deleteRepository());
+        this.elements.deleteRepoConfirm.addEventListener('input', () => {
+            this.elements.deleteRepoBtn.disabled =
+                this.elements.deleteRepoConfirm.value.trim() !== this.repo;
+        });
+        this.elements.createBranchBtn.addEventListener('click', () => this.createBranch());
+        this.elements.renameBranchBtn.addEventListener('click', () => this.renameBranch());
+        this.elements.deleteBranchBtn.addEventListener('click', () => this.deleteBranch());
+        this.elements.listReposBtn.addEventListener('click', () => this.listRepositories());
+
+        this.elements.refreshCodespaces.addEventListener('click', () => this.loadCodespaces());
+        this.elements.createCodespaceBtn.addEventListener('click', () => this.createCodespace());
+        this.elements.pushStartWorkflow.addEventListener('click', () => this.pushCodespaceWorkflow('start'));
+        this.elements.pushStopWorkflow.addEventListener('click', () => this.pushCodespaceWorkflow('stop'));
+        this.elements.pushBothWorkflows.addEventListener('click', () => this.pushCodespaceWorkflow('both'));
+
+        this.elements.fontSize.addEventListener('change', () => this.updateEditorSettings());
+        this.elements.tabSize.addEventListener('change', () => this.updateEditorSettings());
+        this.elements.wordWrap.addEventListener('change', () => this.updateEditorSettings());
+
+        this.elements.patToken.addEventListener('change', () => {
+            this.token = this.elements.patToken.value.trim();
+            if (this.token) localStorage.setItem('github_pat', this.token);
+        });
+    }
+
+    loadStoredSettings() {
+        if (this.token) this.elements.patToken.value = this.token;
+        const s = JSON.parse(localStorage.getItem('editor_settings') || '{}');
+        if (s.fontSize) this.elements.fontSize.value = s.fontSize;
+        if (s.tabSize)  this.elements.tabSize.value  = s.tabSize;
+        if (s.wordWrap !== undefined) this.elements.wordWrap.checked = s.wordWrap;
+        this.updateEditorSettings();
+    }
+
+    updateEditorSettings() {
+        const fs = this.elements.fontSize.value, ts = this.elements.tabSize.value, ww = this.elements.wordWrap.checked;
+        this.elements.editor.style.fontSize  = `${fs}px`;
+        this.elements.editor.style.tabSize   = ts;
+        this.elements.editor.style.whiteSpace = ww ? 'pre-wrap' : 'pre';
+        localStorage.setItem('editor_settings', JSON.stringify({ fontSize: fs, tabSize: ts, wordWrap: ww }));
+    }
+
+    switchTab(tabId) {
+        document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tabId));
+        document.querySelectorAll('.tab-content').forEach(t => t.classList.toggle('active', t.id === `tab-${tabId}`));
+    }
+
+    decodeBase64(b64) {
+        try {
+            const bin = atob(b64); const bytes = new Uint8Array(bin.length);
+            for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+            return new TextDecoder('utf-8').decode(bytes);
+        } catch { return atob(b64); }
+    }
+
+    encodeBase64(text) {
+        try {
+            const bytes = new TextEncoder().encode(text); let bin = '';
+            for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+            return btoa(bin);
+        } catch { return btoa(unescape(encodeURIComponent(text))); }
+    }
+
+    async api(path, options = {}) {
+        const res = await fetch(`https://api.github.com${path}`, {
+            ...options,
+            headers: {
+                Authorization: `token ${this.token}`,
+                Accept: 'application/vnd.github.v3+json',
+                'Content-Type': 'application/json',
+                ...(options.headers || {})
+            },
+            body: options.body ? JSON.stringify(options.body) : undefined
+        });
+        return res;
+    }
+
+    async loadRepository() {
+        this.token  = this.elements.patToken.value.trim();
+        this.owner  = this.elements.repoOwner.value.trim();
+        this.repo   = this.elements.repoName.value.trim();
+        this.branch = this.elements.branch.value.trim() || 'main';
+
+        if (!this.token) { this.showStatus('Enter your PAT first', 'error'); return; }
+        if (!this.owner || !this.repo) { this.showStatus('Enter owner and repo name', 'error'); return; }
+
+        localStorage.setItem('github_pat', this.token);
+        this.cacheKey = this.buildCacheKey();
+        this.showStatus('Loading repository...', 'info');
+
+        try {
+            await this.fetchRepositoryTree();
+            await this.loadBranches();
+            this.updateQuickLinks();
+            this.loadEditsFromCache();
+            this.populateWorkflowDropdown();
+            this.populateDeployDropdown();
+            this.updateManageTab();
+            this.showStatus('Repository loaded', 'success');
+            this.switchTab('code');
+        } catch (e) { this.showStatus(`Error: ${e.message}`, 'error'); }
+    }
+
+    async fetchRepositoryTree() {
+        const res = await this.api(`/repos/${this.owner}/${this.repo}/git/trees/${this.branch}?recursive=1`);
+        if (!res.ok) throw new Error(`Failed to fetch tree: ${res.statusText}`);
+        const data = await res.json();
+
+        this.fileTree = data.tree.filter(i => i.type === 'blob');
+        this.fileTree.forEach(i => { if (!this.fileSHAs[i.path]) this.fileSHAs[i.path] = i.sha; });
+        this.files = this.organizeFiles(data.tree);
+        this.ymlFiles = this.fileTree
+            .filter(i => /\.(yml|yaml)$/i.test(i.path))
+            .map(i => ({ path: i.path, sha: i.sha, isWorkflow: i.path.toLowerCase().startsWith('.github/workflows/') }));
+
+        this.renderFileTree();
+    }
+
+    updateManageTab() {
+        this.elements.renameRepoCurrent.value = this.repo;
+        this.elements.renameRepoBtn.disabled = !this.repo;
+        this.elements.deleteRepoBtn.disabled = true;
+        this.elements.deleteRepoConfirm.value = '';
+
+        const branchSelects = [
+            this.elements.newBranchFrom,
+            this.elements.renameBranchSelect,
+            this.elements.deleteBranchSelect
+        ];
+        branchSelects.forEach(sel => {
+            sel.innerHTML = this.branches.map(b =>
+                `<option value="${b.name}">${b.name}</option>`
+            ).join('');
+        });
+
+        [this.elements.createBranchBtn, this.elements.renameBranchBtn, this.elements.deleteBranchBtn]
+            .forEach(b => b.disabled = false);
+    }
+
+    async createRepository() {
+        const name = this.elements.newRepoName.value.trim();
+        if (!name) { this.showStatus('Enter a repository name', 'error'); return; }
+
+        try {
+            this.showStatus('Creating repository...', 'info');
+            const res = await this.api('/user/repos', {
+                method: 'POST',
+                body: {
+                    name,
+                    description: this.elements.newRepoDesc.value.trim(),
+                    private: this.elements.newRepoVisibility.value === 'private',
+                    auto_init: this.elements.newRepoReadme.checked
+                }
+            });
+            if (!res.ok) { const e = await res.json(); throw new Error(e.message); }
+            const data = await res.json();
+
+            if (this.elements.newRepoCodespaceYml.checked && this.elements.newRepoReadme.checked) {
+                await this.pushWorkflowToRepo(
+                    this.elements.patToken.value.trim(),
+                    data.owner.login, data.name,
+                    'start-codespace.yml', CODESPACE_START_WORKFLOW, 'Add start codespace workflow'
+                );
+                await this.pushWorkflowToRepo(
+                    this.elements.patToken.value.trim(),
+                    data.owner.login, data.name,
+                    'stop-codespace.yml', CODESPACE_STOP_WORKFLOW, 'Add stop codespace workflow'
+                );
+            }
+
+            this.showStatus(`Repository "${name}" created!`, 'success');
+            this.elements.newRepoName.value = '';
+            this.elements.newRepoDesc.value = '';
+        } catch (e) { this.showStatus(`Error: ${e.message}`, 'error'); }
+    }
+
+    async renameRepository() {
+        const newName = this.elements.renameRepoNew.value.trim();
+        if (!newName) { this.showStatus('Enter a new name', 'error'); return; }
+        if (!confirm(`Rename "${this.repo}" to "${newName}"?`)) return;
+
+        try {
+            this.showStatus('Renaming repository...', 'info');
+            const res = await this.api(`/repos/${this.owner}/${this.repo}`, {
+                method: 'PATCH', body: { name: newName }
+            });
+            if (!res.ok) { const e = await res.json(); throw new Error(e.message); }
+            this.repo = newName;
+            this.elements.repoName.value = newName;
+            this.elements.renameRepoCurrent.value = newName;
+            this.elements.renameRepoNew.value = '';
+            this.showStatus(`Renamed to "${newName}"`, 'success');
+        } catch (e) { this.showStatus(`Error: ${e.message}`, 'error'); }
+    }
+
+    async deleteRepository() {
+        if (!confirm(`PERMANENTLY DELETE "${this.repo}"? This cannot be undone!`)) return;
+
+        try {
+            this.showStatus('Deleting repository...', 'info');
+            const res = await this.api(`/repos/${this.owner}/${this.repo}`, { method: 'DELETE' });
+            if (!res.ok && res.status !== 204) throw new Error('Failed to delete repository');
+            this.clearRepoCache();
+            this.showStatus(`"${this.repo}" deleted`, 'success');
+            this.repo = '';
+            this.elements.repoName.value = '';
+            this.elements.renameRepoCurrent.value = '';
+            this.elements.fileTree.innerHTML = '';
+            this.elements.editor.value = '';
+        } catch (e) { this.showStatus(`Error: ${e.message}`, 'error'); }
+    }
+
+    async listRepositories() {
+        if (!this.token) { this.showStatus('Enter your PAT first', 'error'); return; }
+        this.showStatus('Loading repositories...', 'info');
+        try {
+            const res = await this.api('/user/repos?per_page=50&sort=updated');
+            if (!res.ok) throw new Error(res.statusText);
+            const repos = await res.json();
+
+            if (repos.length === 0) {
+                this.elements.reposList.innerHTML = '<p class="muted">No repositories found</p>';
+                return;
+            }
+
+            this.elements.reposList.innerHTML = repos.map(r => `
+                <div class="repo-list-item">
+                    <div class="repo-info">
+                        <span class="repo-name">${r.full_name}</span>
+                        <span class="repo-meta">
+                            ${r.private ? '🔒 Private' : '🌐 Public'} •
+                            ${r.language || 'No language'} •
+                            Updated ${new Date(r.updated_at).toLocaleDateString()}
+                        </span>
+                    </div>
+                    <button class="load-repo-btn primary-btn"
+                        data-owner="${r.owner.login}" data-repo="${r.name}" data-branch="${r.default_branch}">
+                        Load
+                    </button>
+                </div>
+            `).join('');
+
+            this.elements.reposList.querySelectorAll('.load-repo-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    this.elements.repoOwner.value = btn.dataset.owner;
+                    this.elements.repoName.value  = btn.dataset.repo;
+                    this.elements.branch.value    = btn.dataset.branch;
+                    this.loadRepository();
+                });
+            });
+
+            this.showStatus(`Loaded ${repos.length} repositories`, 'success');
+        } catch (e) { this.showStatus(`Error: ${e.message}`, 'error'); }
+    }
+
+    async createBranch() {
+        const name = this.elements.newBranchName.value.trim();
+        const from = this.elements.newBranchFrom.value;
+        if (!name) { this.showStatus('Enter a branch name', 'error'); return; }
+        if (!from) { this.showStatus('Select a source branch', 'error'); return; }
+
+        try {
+            this.showStatus('Creating branch...', 'info');
+            const refRes = await this.api(`/repos/${this.owner}/${this.repo}/git/ref/heads/${from}`);
+            if (!refRes.ok) throw new Error('Could not get source branch SHA');
+            const refData = await refRes.json();
+            const sha = refData.object.sha;
+
+            const res = await this.api(`/repos/${this.owner}/${this.repo}/git/refs`, {
+                method: 'POST', body: { ref: `refs/heads/${name}`, sha }
+            });
+            if (!res.ok) { const e = await res.json(); throw new Error(e.message); }
+            this.showStatus(`Branch "${name}" created from "${from}"`, 'success');
+            this.elements.newBranchName.value = '';
+            await this.loadBranches();
+            this.updateManageTab();
+        } catch (e) { this.showStatus(`Error: ${e.message}`, 'error'); }
+    }
+
+    async renameBranch() {
+        const from = this.elements.renameBranchSelect.value;
+        const to   = this.elements.renameBranchNew.value.trim();
+        if (!from || !to) { this.showStatus('Select branch and enter new name', 'error'); return; }
+        if (!confirm(`Rename branch "${from}" to "${to}"?`)) return;
+
+        try {
+            this.showStatus('Renaming branch...', 'info');
+            const res = await this.api(`/repos/${this.owner}/${this.repo}/branches/${from}/rename`, {
+                method: 'POST', body: { new_name: to }
+            });
+            if (!res.ok) { const e = await res.json(); throw new Error(e.message); }
+            this.showStatus(`Branch renamed to "${to}"`, 'success');
+            this.elements.renameBranchNew.value = '';
+            await this.loadBranches();
+            this.updateManageTab();
+        } catch (e) { this.showStatus(`Error: ${e.message}`, 'error'); }
+    }
+
+    async deleteBranch() {
+        const branchName = this.elements.deleteBranchSelect.value;
+        if (!branchName) { this.showStatus('Select a branch', 'error'); return; }
+        if (!confirm(`Delete branch "${branchName}"?`)) return;
+
+        try {
+            this.showStatus('Deleting branch...', 'info');
+            const res = await this.api(`/repos/${this.owner}/${this.repo}/git/refs/heads/${branchName}`, {
+                method: 'DELETE'
+            });
+            if (!res.ok && res.status !== 204) throw new Error('Failed to delete branch');
+            this.showStatus(`Branch "${branchName}" deleted`, 'success');
+            await this.loadBranches();
+            this.updateManageTab();
+        } catch (e) { this.showStatus(`Error: ${e.message}`, 'error'); }
+    }
+
+    async loadCodespaces() {
+        if (!this.token) { this.showStatus('Enter your PAT first', 'error'); return; }
+        this.showStatus('Loading codespaces...', 'info');
+        try {
+            const res = await this.api('/user/codespaces?per_page=30');
+            if (!res.ok) throw new Error(res.statusText);
+            const data = await res.json();
+            const all  = data.codespaces || [];
+
+            const spaces = this.repo
+                ? all.filter(c => c.repository?.full_name === `${this.owner}/${this.repo}`)
+                : all;
+
+            if (spaces.length === 0) {
+                this.elements.codespacesList.innerHTML = '<p class="muted">No codespaces found for this repository</p>';
+                this.showStatus('No codespaces found', 'info');
+                return;
+            }
+
+            this.elements.codespacesList.innerHTML = spaces.map(c => `
+                <div class="codespace-item">
+                    <div class="codespace-header">
+                        <span class="codespace-name">💻 ${c.display_name || c.name}</span>
+                        <span class="codespace-status ${c.state}">${c.state}</span>
+                    </div>
+                    <div class="codespace-meta">
+                        📁 ${c.repository?.full_name || 'Unknown repo'} •
+                        🌿 ${c.ref || 'Unknown branch'} •
+                        🖥️ ${c.machine?.display_name || c.machine?.name || 'Unknown machine'} •
+                        🕒 Last used: ${c.last_used_at ? new Date(c.last_used_at).toLocaleDateString() : 'Never'}
+                    </div>
+                    <div class="codespace-actions">
+                        ${c.state === 'Shutdown'
+                            ? `<button class="codespace-btn-small primary-btn" onclick="editor.startCodespace('${c.name}')">▶️ Start</button>`
+                            : `<button class="codespace-btn-small" onclick="editor.stopCodespace('${c.name}')">⏹️ Stop</button>`
+                        }
+                        <button class="codespace-btn-small" onclick="window.open('${c.web_url}','_blank')">🌐 Open</button>
+                        <button class="codespace-btn-small danger-btn" onclick="editor.deleteCodespace('${c.name}')">🗑️ Delete</button>
+                    </div>
+                </div>
+            `).join('');
+
+            this.showStatus(`Loaded ${spaces.length} codespace(s)`, 'success');
+        } catch (e) { this.showStatus(`Error: ${e.message}`, 'error'); }
+    }
+
+    async createCodespace() {
+        if (!this.owner || !this.repo) { this.showStatus('Load a repository first', 'error'); return; }
+
+        const branch = this.elements.codespaceBranch.value;
+        const machine = this.elements.codespaceMachine.value;
+        const displayName = this.elements.codespaceDisplayName.value.trim();
+        const retention = parseInt(this.elements.codespaceRetention.value);
+
+        try {
+            this.showStatus('Creating codespace...', 'info');
+            const body = {
+                repository_id: await this.getRepoId(),
+                ref: branch || this.branch,
+                machine
+            };
+            if (displayName) body.display_name = displayName;
+            if (retention > 0) body.retention_period_minutes = retention * 24 * 60;
+
+            const res = await this.api('/user/codespaces', { method: 'POST', body });
+            if (!res.ok) { const e = await res.json(); throw new Error(e.message); }
+            const data = await res.json();
+            this.showStatus(`Codespace "${data.name}" created!`, 'success');
+            await this.loadCodespaces();
+        } catch (e) { this.showStatus(`Error: ${e.message}`, 'error'); }
+    }
+
+    async getRepoId() {
+        const res = await this.api(`/repos/${this.owner}/${this.repo}`);
+        if (!res.ok) throw new Error('Could not get repository ID');
+        const data = await res.json();
+        return data.id;
+    }
+
+    async startCodespace(name) {
+        try {
+            this.showStatus(`Starting ${name}...`, 'info');
+            const res = await this.api(`/user/codespaces/${name}/start`, { method: 'POST' });
+            if (!res.ok) { const e = await res.json(); throw new Error(e.message); }
+            this.showStatus(`Codespace started!`, 'success');
+            setTimeout(() => this.loadCodespaces(), 2000);
+        } catch (e) { this.showStatus(`Error: ${e.message}`, 'error'); }
+    }
+
+    async stopCodespace(name) {
+        try {
+            this.showStatus(`Stopping ${name}...`, 'info');
+            const res = await this.api(`/user/codespaces/${name}/stop`, { method: 'POST' });
+            if (!res.ok) { const e = await res.json(); throw new Error(e.message); }
+            this.showStatus(`Codespace stopped!`, 'success');
+            setTimeout(() => this.loadCodespaces(), 2000);
+        } catch (e) { this.showStatus(`Error: ${e.message}`, 'error'); }
+    }
+
+    async deleteCodespace(name) {
+        if (!confirm(`Delete codespace "${name}"?`)) return;
+        try {
+            this.showStatus(`Deleting ${name}...`, 'info');
+            const res = await this.api(`/user/codespaces/${name}`, { method: 'DELETE' });
+            if (!res.ok && res.status !== 204) throw new Error('Failed to delete codespace');
+            this.showStatus('Codespace deleted', 'success');
+            await this.loadCodespaces();
+        } catch (e) { this.showStatus(`Error: ${e.message}`, 'error'); }
+    }
+
+    async pushCodespaceWorkflow(which) {
+        if (!this.owner || !this.repo) { this.showStatus('Load a repository first', 'error'); return; }
+        try {
+            this.showStatus('Pushing workflow(s)...', 'info');
+            if (which === 'start' || which === 'both') {
+                await this.pushWorkflowToRepo(this.token, this.owner, this.repo,
+                    'start-codespace.yml', CODESPACE_START_WORKFLOW, 'Add start codespace workflow');
+            }
+            if (which === 'stop' || which === 'both') {
+                await this.pushWorkflowToRepo(this.token, this.owner, this.repo,
+                    'stop-codespace.yml', CODESPACE_STOP_WORKFLOW, 'Add stop codespace workflow');
+            }
+            this.showStatus('Workflow(s) pushed!', 'success');
+            await this.fetchRepositoryTree();
+            this.populateWorkflowDropdown();
+            this.populateDeployDropdown();
+        } catch (e) { this.showStatus(`Error: ${e.message}`, 'error'); }
+    }
+
+    async pushWorkflowToRepo(token, owner, repo, filename, content, message) {
+        const path = `.github/workflows/${filename}`;
+        const url  = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
+
+        let sha;
+        const existing = await fetch(url, {
+            headers: { Authorization: `token ${token}`, Accept: 'application/vnd.github.v3+json' }
+        });
+        if (existing.ok) {
+            const d = await existing.json();
+            sha = d.sha;
+        }
+
+        const body = { message, content: this.encodeBase64(content) };
+        if (sha) body.sha = sha;
+
+        const res = await fetch(url, {
+            method: 'PUT',
+            headers: {
+                Authorization: `token ${token}`,
+                Accept: 'application/vnd.github.v3+json',
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(body)
+        });
+        if (!res.ok) { const e = await res.json(); throw new Error(e.message); }
+    }
+
+    async loadBranches() {
+        try {
+            const res = await this.api(`/repos/${this.owner}/${this.repo}/branches?per_page=100`);
+            if (!res.ok) return;
+            this.branches = await res.json();
+
+            this.elements.pagesBranch.innerHTML = '<option value="">Select branch</option>' +
+                this.branches.map(b => `<option value="${b.name}">${b.name}</option>`).join('');
+
+            this.elements.codespaceBranch.innerHTML =
+                this.branches.map(b => `<option value="${b.name}">${b.name}</option>`).join('');
+        } catch (e) { console.error(e); }
+    }
+
+    updateQuickLinks() {
+        const base = `https://github.com/${this.owner}/${this.repo}`;
+        [
+            [this.elements.repoUrl, base],
+            [this.elements.pagesSettingsUrl, `${base}/settings/pages`],
+            [this.elements.actionsPageLink, `${base}/actions`],
+            [this.elements.actionsPageLinkPages, `${base}/actions`]
+        ].forEach(([el, href]) => { el.href = href; el.classList.remove('disabled'); });
+    }
+
+    organizeFiles(tree) {
+        const out = {};
+        tree.forEach(item => {
+            if (item.type !== 'blob') return;
+            const parts = item.path.split('/');
+            let cur = out;
+            for (let i = 0; i < parts.length - 1; i++) {
+                if (!cur[parts[i]]) cur[parts[i]] = {};
+                cur = cur[parts[i]];
+            }
+            cur[parts[parts.length - 1]] = { path: item.path, sha: item.sha, size: item.size };
+        });
+        return out;
+    }
+
+    renderFileTree() {
+        this.elements.fileTree.innerHTML = '';
+        this.renderTreeLevel(this.files, this.elements.fileTree, '');
+    }
+
+    renderTreeLevel(level, container, prefix) {
+        const folders = [], files = [];
+        Object.keys(level).forEach(k => (level[k].path ? files : folders).push(k));
+
+        folders.sort().forEach(key => {
+            const fd = document.createElement('div');
+            fd.className = 'folder-item';
+            fd.textContent = `📁 ${key}`;
+            const cd = document.createElement('div');
+            cd.className = 'folder-content';
+            cd.style.display = 'none';
+            fd.addEventListener('click', e => {
+                e.stopPropagation();
+                const hidden = cd.style.display === 'none';
+                cd.style.display = hidden ? 'block' : 'none';
+                fd.textContent = `${hidden ? '📂' : '📁'} ${key}`;
+            });
+            container.appendChild(fd);
+            container.appendChild(cd);
+            this.renderTreeLevel(level[key], cd, prefix ? `${prefix}/${key}` : key);
+        });
+
+        files.sort().forEach(key => {
+            const item = level[key];
+            const el = document.createElement('div');
+            el.className = 'file-item' + (this.pendingUploads[item.path] ? ' has-changes' : '');
+            el.dataset.path = item.path;
+            el.textContent = `${this.getFileIcon(key)} ${key}`;
+            el.addEventListener('click', () => this.loadFile(item.path));
+            container.appendChild(el);
+        });
+    }
+
+    getFileIcon(n) {
+        const ext = n.split('.').pop().toLowerCase();
+        return { js:'📜',ts:'📘',json:'📋',html:'🌐',css:'🎨',md:'📝',yml:'⚙️',yaml:'⚙️',
+                 py:'🐍',rb:'💎',go:'🔵',rs:'🦀',java:'☕',php:'🐘',sh:'💻',txt:'📄',
+                 svg:'🖼️',png:'🖼️',jpg:'🖼️',gif:'🖼️' }[ext] || '📄';
+    }
+
+    async loadFile(path) {
+        try {
+            if (this.pendingUploads[path] !== undefined) {
+                this.elements.editor.value = this.pendingUploads[path];
+                this.elements.editor.disabled = false;
+                this.currentFile = path;
+                this.elements.currentFile.textContent = `${path} ✏️`;
+                this.elements.fileInfo.textContent = 'From local cache — not pushed';
+                this.elements.saveFile.disabled = false;
+                this.elements.deleteFile.disabled = false;
+                this.elements.exportCurrent.disabled = false;
+                document.querySelectorAll('.file-item').forEach(el =>
+                    el.classList.toggle('active', el.dataset.path === path));
+                this.showStatus('Loaded from cache', 'info');
+                return;
+            }
+
+            this.showStatus('Loading...', 'info');
+            const res = await this.api(`/repos/${this.owner}/${this.repo}/contents/${encodeURIComponent(path)}?ref=${this.branch}`);
+            if (!res.ok) throw new Error(res.statusText);
+            const data = await res.json();
+
+            if (this.isBinaryFile(path)) {
+                this.elements.editor.value = `[Binary — ${data.size} bytes]`;
+                this.elements.editor.disabled = true;
+            } else {
+                const content = this.decodeBase64(data.content.replace(/\n/g, ''));
+                this.elements.editor.value = content;
+                this.elements.editor.disabled = false;
+                this.fileContents[path] = content;
+            }
+
+            this.currentFile = path;
+            this.fileSHAs[path] = data.sha;
+            this.elements.currentFile.textContent = path;
+            this.elements.fileInfo.textContent = `${data.size} bytes | SHA: ${data.sha.substring(0,7)}`;
+            this.elements.saveFile.disabled = false;
+            this.elements.deleteFile.disabled = false;
+            this.elements.exportCurrent.disabled = false;
+
+            document.querySelectorAll('.file-item').forEach(el =>
+                el.classList.toggle('active', el.dataset.path === path));
+            this.showStatus('File loaded', 'success');
+        } catch (e) { this.showStatus(`Error: ${e.message}`, 'error'); }
+    }
+
+    isBinaryFile(path) {
+        const bin = ['png','jpg','jpeg','gif','bmp','ico','webp','pdf','zip','tar',
+                     'gz','exe','dll','so','woff','woff2','ttf','eot','mp3','mp4','wav','avi','mov','webm'];
+        return bin.includes(path.split('.').pop().toLowerCase());
+    }
+
+    createNewFile() {
+        const name = prompt('File name (include path if needed):');
+        if (!name) return;
+        this.currentFile = name;
+        this.pendingUploads[name] = '';
+        this.fileContents[name] = '';
+        this.elements.editor.value = '';
+        this.elements.editor.disabled = false;
+        this.elements.currentFile.textContent = `${name} ✏️ (new)`;
+        this.elements.fileInfo.textContent = 'New file — not pushed';
+        this.elements.saveFile.disabled = false;
+        this.elements.deleteFile.disabled = true;
+        this.elements.exportCurrent.disabled = false;
+        this.saveEditsToCache();
+        this.updatePendingList();
+    }
+
+    onEditorChange() {
+        if (!this.currentFile) return;
+        const content = this.elements.editor.value;
+        this.pendingUploads[this.currentFile] = content;
+        this.fileContents[this.currentFile] = content;
+        this.elements.fileInfo.textContent = '✏️ Modified — cached';
+        clearTimeout(this._cacheTimer);
+        this._cacheTimer = setTimeout(() => this.saveEditsToCache(), 800);
+        const el = document.querySelector(`.file-item[data-path="${this.currentFile}"]`);
+        if (el) el.classList.add('has-changes');
+    }
+
+    async saveCurrentFile() {
+        if (!this.currentFile) { this.showStatus('No file selected', 'error'); return; }
+        const content = this.elements.editor.value;
+        const message = prompt('Commit message:', `Update ${this.currentFile}`);
+        if (!message) return;
+
+        try {
+            this.showStatus('Saving...', 'info');
+            const body = { message, content: this.encodeBase64(content), branch: this.branch };
+            if (this.fileSHAs[this.currentFile]) body.sha = this.fileSHAs[this.currentFile];
+
+            const res = await this.api(
+                `/repos/${this.owner}/${this.repo}/contents/${encodeURIComponent(this.currentFile)}`,
+                { method: 'PUT', body }
+            );
+            if (!res.ok) { const e = await res.json(); throw new Error(e.message); }
+            const data = await res.json();
+
+            this.fileSHAs[this.currentFile] = data.content.sha;
+            this.fileContents[this.currentFile] = content;
+            delete this.pendingUploads[this.currentFile];
+            this.saveEditsToCache();
+            this.showStatus('Saved!', 'success');
+            this.elements.fileInfo.textContent = `Saved | SHA: ${data.content.sha.substring(0,7)}`;
+            this.elements.currentFile.textContent = this.currentFile;
+            this.updatePendingList();
+            await this.fetchRepositoryTree();
+            this.populateWorkflowDropdown();
+            this.populateDeployDropdown();
+        } catch (e) { this.showStatus(`Error: ${e.message}`, 'error'); }
+    }
+
+    async deleteCurrentFile() {
+        if (!this.currentFile || !this.fileSHAs[this.currentFile]) {
+            this.showStatus('Cannot delete unsaved file', 'error'); return;
+        }
+        if (!confirm(`Delete ${this.currentFile}?`)) return;
+        const message = prompt('Commit message:', `Delete ${this.currentFile}`);
+        if (!message) return;
+
+        try {
+            this.showStatus('Deleting...', 'info');
+            const res = await this.api(
+                `/repos/${this.owner}/${this.repo}/contents/${encodeURIComponent(this.currentFile)}`,
+                { method: 'DELETE', body: { message, sha: this.fileSHAs[this.currentFile], branch: this.branch } }
+            );
+            if (!res.ok) throw new Error(res.statusText);
+            delete this.fileContents[this.currentFile];
+            delete this.fileSHAs[this.currentFile];
+            delete this.pendingUploads[this.currentFile];
+            this.saveEditsToCache();
+            this.currentFile = null;
+            this.elements.editor.value = '';
+            this.elements.currentFile.textContent = 'No file selected';
+            this.elements.fileInfo.textContent = '';
+            this.elements.saveFile.disabled = true;
+            this.elements.deleteFile.disabled = true;
+            this.elements.exportCurrent.disabled = true;
+            this.showStatus('Deleted', 'success');
+            await this.fetchRepositoryTree();
+            this.populateWorkflowDropdown();
+            this.populateDeployDropdown();
+        } catch (e) { this.showStatus(`Error: ${e.message}`, 'error'); }
+    }
+
+    async handleFileImport(e) {
+        for (const f of e.target.files) await this.importSingleFile(f, f.name);
+        e.target.value = '';
+        this.saveEditsToCache(); this.updatePendingList();
+        this.showStatus(`${e.target.files.length} file(s) cached`, 'success');
+    }
+
+    async handleFolderImport(e) {
+        for (const f of e.target.files) await this.importSingleFile(f, f.webkitRelativePath || f.name);
+        e.target.value = '';
+        this.saveEditsToCache(); this.updatePendingList();
+        this.showStatus(`${e.target.files.length} file(s) cached`, 'success');
+    }
+
+    importSingleFile(file, path) {
+        return new Promise(resolve => {
+            const r = new FileReader();
+            r.onload = e => { this.pendingUploads[path] = e.target.result; this.fileContents[path] = e.target.result; resolve(); };
+            r.readAsText(file);
+        });
+    }
+
+    updatePendingList() {
+        const paths = Object.keys(this.pendingUploads);
+        this.elements.batchCommitBtn.disabled = paths.length === 0;
+        if (paths.length === 0) {
+            this.elements.pendingImports.innerHTML = '<p class="muted">No pending changes</p>';
+        } else {
+            this.elements.pendingImports.innerHTML = `
+                <h4>Pending (${paths.length})</h4>
+                ${paths.map(p => `
+                    <div class="pending-item">
+                        <span>${p}</span>
+                        <button class="remove-btn" data-path="${p}">✕</button>
+                    </div>`).join('')}`;
+            this.elements.pendingImports.querySelectorAll('.remove-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    delete this.pendingUploads[btn.dataset.path];
+                    this.saveEditsToCache(); this.updatePendingList(); this.renderFileTree();
+                });
+            });
+        }
+        this.updateCacheIndicator();
+    }
+
+    exportCurrentFile() {
+        if (!this.currentFile) { this.showStatus('No file selected', 'error'); return; }
+        this.downloadFile(this.currentFile.split('/').pop(), this.elements.editor.value);
+        this.showStatus('Exported', 'success');
+    }
+
+    async exportAllFiles() {
+        if (!this.owner || !this.repo) { this.showStatus('Load a repository first', 'error'); return; }
+        this.showStatus('Exporting...', 'info');
+        try {
+            const out = { repository: `${this.owner}/${this.repo}`, branch: this.branch, exportDate: new Date().toISOString(), files: {} };
+            let n = 0;
+            for (const item of this.fileTree) {
+                if (this.isBinaryFile(item.path)) continue;
+                try {
+                    const r = await this.api(`/repos/${this.owner}/${this.repo}/contents/${encodeURIComponent(item.path)}?ref=${this.branch}`);
+                    if (r.ok) { const d = await r.json(); out.files[item.path] = this.decodeBase64(d.content.replace(/\n/g,'')); }
+                } catch {}
+                if (++n % 10 === 0) this.showStatus(`Exporting ${n}/${this.fileTree.length}...`, 'info');
+            }
+            this.downloadFile(`${this.repo}-export.json`, JSON.stringify(out, null, 2));
+            this.showStatus(`Exported ${Object.keys(out.files).length} files`, 'success');
+        } catch (e) { this.showStatus(`Export failed: ${e.message}`, 'error'); }
+    }
+
+    downloadRepoZip() {
+        if (!this.owner || !this.repo) { this.showStatus('Load a repository first', 'error'); return; }
+        window.open(`https://github.com/${this.owner}/${this.repo}/archive/refs/heads/${this.branch}.zip`, '_blank');
+    }
+
+    downloadFile(filename, content) {
+        const a = Object.assign(document.createElement('a'), {
+            href: URL.createObjectURL(new Blob([content], { type: 'text/plain;charset=utf-8' })),
+            download: filename
+        });
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    }
+
+    async batchCommit() {
+        const paths = Object.keys(this.pendingUploads);
+        if (!paths.length) { this.showStatus('No pending changes', 'error'); return; }
+        const message = this.elements.batchCommitMessage.value.trim() || 'Update files';
+        if (!confirm(`Push ${paths.length} file(s)?\n"${message}"`)) return;
+
+        let saved = 0, failed = 0;
+        for (const [path, content] of Object.entries(this.pendingUploads)) {
+            this.showStatus(`Pushing ${saved+1}/${paths.length}: ${path}`, 'info');
+            try {
+                const body = { message, content: this.encodeBase64(content), branch: this.branch };
+                if (this.fileSHAs[path]) body.sha = this.fileSHAs[path];
+                const r = await this.api(`/repos/${this.owner}/${this.repo}/contents/${encodeURIComponent(path)}`, { method: 'PUT', body });
+                if (r.ok) { const d = await r.json(); this.fileSHAs[path] = d.content.sha; delete this.pendingUploads[path]; saved++; }
+                else failed++;
+            } catch { failed++; }
+        }
+
+        Object.keys(this.pendingUploads).length === 0 ? this.clearRepoCache() : this.saveEditsToCache();
+        this.updatePendingList();
+        this.showStatus(
+            failed === 0 ? `✅ Pushed ${saved} file(s)! Cache cleared.` : `Pushed ${saved}, failed ${failed}.`,
+            failed === 0 ? 'success' : 'error'
+        );
+        await this.fetchRepositoryTree();
+        this.populateWorkflowDropdown();
+        this.populateDeployDropdown();
+    }
+
+    populateWorkflowDropdown() { this._fillYmlDropdown(this.elements.workflowFileSelect, this.elements.workflowRef); }
+    populateDeployDropdown()   { this._fillYmlDropdown(this.elements.deployWorkflowSelect, this.elements.deployRef); }
+
+    _fillYmlDropdown(select, refInput) {
+        select.innerHTML = '';
+        if (!this.ymlFiles.length) {
+            select.innerHTML = '<option value="">No .yml files found</option>'; return;
+        }
+        const wf = this.ymlFiles.filter(f => f.isWorkflow).sort((a,b) => a.path.localeCompare(b.path));
+        const ot = this.ymlFiles.filter(f => !f.isWorkflow).sort((a,b) => a.path.localeCompare(b.path));
+
+        const def = document.createElement('option');
+        def.value = ''; def.textContent = `── Select YAML file (${this.ymlFiles.length}) ──`;
+        select.appendChild(def);
+
+        if (wf.length) {
+            const g = document.createElement('optgroup');
+            g.label = `⚙️  Workflows (${wf.length})`;
+            wf.forEach(f => { const o = document.createElement('option'); o.value = f.path; o.textContent = `${f.path}  @${this.branch}`; g.appendChild(o); });
+            select.appendChild(g);
+        }
+        if (ot.length) {
+            const g = document.createElement('optgroup');
+            g.label = `📄  Other YAML (${ot.length})`;
+            ot.forEach(f => { const o = document.createElement('option'); o.value = f.path; o.textContent = `${f.path}  @${this.branch}`; g.appendChild(o); });
+            select.appendChild(g);
+        }
+        if (refInput) refInput.value = this.branch;
+    }
+
+    parseWorkflowFile(content) {
+        const info = { name: 'Unknown', triggers: [], inputs: [] };
+        const nm = content.match(/^name:\s*['"]?(.+?)['"]?\s*$/m); if (nm) info.name = nm[1].trim();
+        const onI = content.match(/^on:\s*\[([^\]]+)\]/m);
+        const onS = content.match(/^on:\s+(\w[\w_]+)\s*$/m);
+        const onB = content.match(/^on:\s*\n([\s\S]*?)(?=\n\S)/m);
+        if (onI) info.triggers = onI[1].split(',').map(t=>t.trim());
+        else if (onS) info.triggers = [onS[1].trim()];
+        else if (onB) info.triggers = [...onB[1].matchAll(/^\s{2}(\w[\w_]+)\s*:/gm)].map(m=>m[1]);
+        if (!info.triggers.includes('workflow_dispatch') && content.includes('workflow_dispatch')) info.triggers.push('workflow_dispatch');
+
+        const db = content.match(/workflow_dispatch:\s*\n([\s\S]*?)(?=\n\s{2}[a-z_]+:|\njobs:)/);
+        if (db) {
+            const ib = db[1].match(/inputs:\s*\n([\s\S]*)/);
+            if (ib) {
+                const sec = ib[1], re = /^[ ]{6}(\w+):\s*$/gm; let m;
+                while ((m = re.exec(sec)) !== null) {
+                    const name = m[1], start = m.index + m[0].length;
+                    const ni = sec.slice(start).search(/^[ ]{6}\w+:/m);
+                    const blk = ni >= 0 ? sec.slice(start, start+ni) : sec.slice(start);
+                    const options = [];
+                    const ob = blk.match(/options:\s*\n([\s\S]*?)(?=\n[ ]{6,8}\w+:|\Z)/);
+                    if (ob) for (const ov of ob[1].matchAll(/^\s+-\s*['"]?(.+?)['"]?\s*$/gm)) options.push(ov[1]);
+                    info.inputs.push({
+                        name,
+                        description: (blk.match(/description:\s*['"]?(.+?)['"]?\s*$/) || [])[1] || '',
+                        required:    (blk.match(/required:\s*(true|false)/)            || [])[1] === 'true',
+                        default:     (blk.match(/default:\s*['"]?(.+?)['"]?\s*$/)     || [])[1] || '',
+                        type:        (blk.match(/type:\s*(\w+)/)                      || [])[1] || 'string',
+                        options
+                    });
+                }
+            }
+        }
+        return info;
+    }
+
+    buildWorkflowInfoHTML(path, info) {
+        const badges = info.triggers.map(t => {
+            const cls = {workflow_dispatch:'dispatch',push:'push',pull_request:'pull_request',schedule:'schedule'}[t]||'other';
+            return `<span class="trigger-badge ${cls}">${t}</span>`;
+        }).join(' ');
+        return `<div class="file-path">📄 ${path}</div>
+            <div class="file-details">
+                <strong>Name:</strong> ${info.name}<br>
+                <strong>Branch:</strong> ${this.branch}<br>
+                <strong>Triggers:</strong> ${badges || '<span class="muted">none</span>'}
+                ${info.inputs.length ? `<br><strong>Inputs:</strong> ${info.inputs.length}` : ''}
+            </div>`;
+    }
+
+    buildInputsHTML(inputs) {
+        let h = '<h4 style="margin-bottom:8px;color:#8b949e;">Inputs</h4>';
+        inputs.forEach(i => {
+            h += `<div class="workflow-input-group"><label>${i.name}${i.required?' <span style="color:#f85149">*</span>':''}</label>`;
+            if (i.type === 'choice' && i.options.length)
+                h += `<select data-input-name="${i.name}">${i.options.map(o=>`<option ${o===i.default?'selected':''}>${o}</option>`).join('')}</select>`;
+            else if (i.type === 'boolean')
+                h += `<label class="checkbox-label"><input type="checkbox" data-input-name="${i.name}" ${i.default==='true'?'checked':''}> ${i.description||'Enable'}</label>`;
+            else
+                h += `<input type="text" data-input-name="${i.name}" placeholder="${i.default||i.description||''}" value="${i.default||''}">`;
+            if (i.description && i.type !== 'boolean') h += `<small>${i.description}</small>`;
+            h += '</div>';
+        });
+        return h;
+    }
+
+    collectInputs(container) {
+        const out = {};
+        container.querySelectorAll('[data-input-name]').forEach(el => {
+            const n = el.dataset.inputName;
+            if (el.type === 'checkbox') out[n] = String(el.checked);
+            else if (el.value.trim()) out[n] = el.value.trim();
+        });
+        return out;
+    }
+
+    async _loadAndShowWorkflow(path, infoEl, warnEl, triggerBtn, inputsEl, refInput) {
+        infoEl.innerHTML = ''; infoEl.style && (infoEl.style.display = 'none');
+        if (inputsEl) inputsEl.innerHTML = '';
+        warnEl.style.display = 'none';
+        triggerBtn.disabled = true;
+        if (!path) return;
+
+        try {
+            const res = await this.api(`/repos/${this.owner}/${this.repo}/contents/${encodeURIComponent(path)}?ref=${this.branch}`);
+            if (!res.ok) throw new Error('Failed to fetch file');
+            const data = await res.json();
+            const content = this.decodeBase64(data.content.replace(/\n/g,''));
+            const info = this.parseWorkflowFile(content);
+
+            infoEl.innerHTML = this.buildWorkflowInfoHTML(path, info);
+            if (infoEl.style) infoEl.style.display = 'block';
+
+            const isWfDir = path.toLowerCase().startsWith('.github/workflows/');
+            const hasDispatch = info.triggers.includes('workflow_dispatch');
+
+            if (!isWfDir) {
+                warnEl.innerHTML = '⚠️ Not in <code>.github/workflows/</code> — cannot be triggered as Actions.';
+                warnEl.style.display = 'block';
+            } else if (!hasDispatch) {
+                warnEl.innerHTML = '⚠️ No <code>workflow_dispatch</code> trigger found.';
+                warnEl.style.display = 'block';
+            } else {
+                triggerBtn.disabled = false;
+                if (inputsEl && info.inputs.length) inputsEl.innerHTML = this.buildInputsHTML(info.inputs);
+            }
+        } catch (e) { this.showStatus(`Error: ${e.message}`, 'error'); }
+    }
+
+    async onWorkflowFileSelect() {
+        await this._loadAndShowWorkflow(
+            this.elements.workflowFileSelect.value,
+            this.elements.workflowFileInfo,
+            this.elements.workflowDispatchWarning,
+            this.elements.triggerWorkflow,
+            this.elements.workflowInputsContainer,
+            this.elements.workflowRef
+        );
+    }
+
+    async onDeployWorkflowSelect() {
+        this.elements.deployRunStatus.style.display = 'none';
+        await this._loadAndShowWorkflow(
+            this.elements.deployWorkflowSelect.value,
+            this.elements.deployWorkflowInfo,
+            this.elements.deployDispatchWarning,
+            this.elements.triggerDeploy,
+            this.elements.deployInputsContainer,
+            this.elements.deployRef
+        );
+    }
+
+    async _dispatchWorkflow(path, ref, inputsContainer) {
+        const fileName = path.split('/').pop();
+        const inputs   = this.collectInputs(inputsContainer);
+        const body     = { ref };
+        if (Object.keys(inputs).length) body.inputs = inputs;
+
+        const res = await this.api(
+            `/repos/${this.owner}/${this.repo}/actions/workflows/${fileName}/dispatches`,
+            { method: 'POST', body }
+        );
+        if (!res.ok) { const e = await res.json(); throw new Error(e.message || res.statusText); }
+    }
+
+    async triggerWorkflow() {
+        const path = this.elements.workflowFileSelect.value;
+        if (!path) { this.showStatus('Select a workflow', 'error'); return; }
+        try {
+            this.showStatus('Triggering...', 'info');
+            await this._dispatchWorkflow(path, this.elements.workflowRef.value || this.branch, this.elements.workflowInputsContainer);
+            this.showStatus('Workflow triggered!', 'success');
+            if (confirm('Open Actions page?')) window.open(`https://github.com/${this.owner}/${this.repo}/actions`, '_blank');
+            setTimeout(() => this.loadWorkflowRuns(), 3000);
+        } catch (e) { this.showStatus(`Error: ${e.message}`, 'error'); }
+    }
+
+    async triggerDeploy() {
+        const path = this.elements.deployWorkflowSelect.value;
+        if (!path) { this.showStatus('Select a workflow', 'error'); return; }
+        try {
+            this.showStatus('Deploying...', 'info');
+            this.elements.triggerDeploy.disabled = true;
+            this.elements.triggerDeploy.textContent = '⏳ Deploying...';
+            await this._dispatchWorkflow(path, this.elements.deployRef.value || this.branch, this.elements.deployInputsContainer);
+            this.showStatus('Deployment triggered!', 'success');
+            this.elements.triggerDeploy.textContent = '🚀 Deploy Now';
+            this.elements.triggerDeploy.disabled = false;
+            this.elements.deployRunStatus.style.display = 'block';
+            this.elements.deployRunInfo.innerHTML = '<div class="deploy-run-row"><span class="deploy-run-label">Status</span><span class="deploy-run-value"><span class="spinning">⏳</span> Waiting…</span></div>';
+            setTimeout(() => this.pollLatestDeployRun(path.split('/').pop()), 4000);
+        } catch (e) {
+            this.elements.triggerDeploy.textContent = '🚀 Deploy Now';
+            this.elements.triggerDeploy.disabled = false;
+            this.showStatus(`Error: ${e.message}`, 'error');
+        }
+    }
+
+    async pollLatestDeployRun(workflowFileName) {
+        const path = this.elements.deployWorkflowSelect.value;
+        const fn   = workflowFileName || (path ? path.split('/').pop() : null);
+        if (!fn) return;
+        try {
+            const wfRes  = await this.api(`/repos/${this.owner}/${this.repo}/actions/workflows`);
+            const wfList = wfRes.ok ? (await wfRes.json()).workflows || [] : [];
+            const matched = wfList.find(w => w.path.endsWith(fn));
+            const runsUrl = matched
+                ? `/repos/${this.owner}/${this.repo}/actions/workflows/${matched.id}/runs?per_page=1`
+                : `/repos/${this.owner}/${this.repo}/actions/runs?per_page=5`;
+            const rRes = await this.api(runsUrl);
+            if (!rRes.ok) return;
+            const runs = (await rRes.json()).workflow_runs || [];
+            if (!runs.length) { this.elements.deployRunInfo.innerHTML = '<div class="deploy-run-row"><span class="muted">No runs yet</span></div>'; return; }
+            this.renderDeployRunInfo(runs[0]);
+            const st = runs[0].status;
+            if (st === 'in_progress' || st === 'queued' || st === 'waiting') {
+                clearTimeout(this._pollTimer);
+                this._pollTimer = setTimeout(() => this.pollLatestDeployRun(fn), 6000);
+            }
+        } catch (e) { console.error(e); }
+    }
+
+    renderDeployRunInfo(run) {
+        const colorMap = { success:'#3fb950', failure:'#f85149', cancelled:'#8b949e', in_progress:'#58a6ff', queued:'#f0883e' };
+        const iconMap  = { success:'✅', failure:'❌', cancelled:'⛔', in_progress:'⏳', queued:'🕐' };
+        const key = run.conclusion || run.status;
+        const color = colorMap[key] || '#c9d1d9';
+        const icon  = iconMap[key]  || '❓';
+        const isRunning = ['in_progress','queued','waiting'].includes(run.status);
+        const statusText = run.conclusion ? `${icon} ${run.conclusion}` : `${isRunning?'<span class="spinning">⏳</span>':icon} ${run.status}`;
+        const dur = run.run_started_at && run.updated_at
+            ? Math.round((new Date(run.updated_at)-new Date(run.run_started_at))/1000)+'s' : '—';
+
+        this.elements.deployRunInfo.innerHTML = `
+            <div class="deploy-run-row"><span class="deploy-run-label">Run</span><span class="deploy-run-value">#${run.run_number} — ${run.name}</span></div>
+            <div class="deploy-run-row"><span class="deploy-run-label">Status</span><span class="deploy-run-value" style="color:${color}">${statusText}</span></div>
+            <div class="deploy-run-row"><span class="deploy-run-label">Branch</span><span class="deploy-run-value">${run.head_branch}</span></div>
+            <div class="deploy-run-row"><span class="deploy-run-label">Duration</span><span class="deploy-run-value">${dur}</span></div>
+            <div class="deploy-run-row"><span class="deploy-run-label">Commit</span><span class="deploy-run-value">${(run.head_sha||'').substring(0,7)}</span></div>
+            <div class="deploy-run-row"><span class="deploy-run-label">View</span><span class="deploy-run-value"><a href="${run.html_url}" target="_blank" style="color:#58a6ff;">GitHub ↗</a></span></div>
+            ${isRunning?'<div class="deploy-run-row"><span class="deploy-run-label" style="color:#58a6ff;">Auto-refreshing…</span></div>':''}`;
+    }
+
+    onSourceTypeChange() {
+        this.elements.branchSourceConfig.style.display =
+            this.elements.pagesSourceType.value === 'actions' ? 'none' : 'flex';
+    }
+
+    async loadPagesInfo() {
+        if (!this.owner || !this.repo) { this.showStatus('Load a repository first', 'error'); return; }
+        this.showStatus('Loading Pages...', 'info');
+        try {
+            const r = await this.api(`/repos/${this.owner}/${this.repo}/pages`);
+            if (r.ok) {
+                const d = await r.json();
+                this.displayPagesStatus(d);
+                if (d.build_type === 'workflow') { this.elements.pagesSourceType.value = 'actions'; this.onSourceTypeChange(); }
+            } else if (r.status === 404) {
+                this.elements.pagesStatus.innerHTML = '<div class="status-row"><span class="status-label">Status</span><span class="status-value inactive">Not Enabled</span></div>';
+            }
+            await this.loadDeployments();
+            this.showStatus('Pages info loaded', 'success');
+        } catch (e) { this.showStatus(`Error: ${e.message}`, 'error'); }
+    }
+
+    displayPagesStatus(d) {
+        this.elements.pagesStatus.innerHTML = `
+            <div class="status-row"><span class="status-label">Status</span><span class="status-value ${d.status==='built'?'active':''}">${d.status||'Unknown'}</span></div>
+            <div class="status-row"><span class="status-label">Build</span><span class="status-value">${d.build_type==='workflow'?'⚙️ Actions':'🌿 Branch'}</span></div>
+            <div class="status-row"><span class="status-label">URL</span><span class="status-value"><a href="${d.html_url}" target="_blank">${d.html_url}</a></span></div>
+            ${d.source?`<div class="status-row"><span class="status-label">Source</span><span class="status-value">${d.source.branch} / ${d.source.path||'/'}</span></div>`:''}`;
+        if (d.html_url) { this.elements.pagesUrl.href = d.html_url; this.elements.pagesUrl.classList.remove('disabled'); }
+        if (d.source)   { this.elements.pagesBranch.value = d.source.branch; this.elements.pagesPath.value = d.source.path; }
+    }
+
+    async loadDeployments() {
+        try {
+            const r = await this.api(`/repos/${this.owner}/${this.repo}/deployments`);
+            if (!r.ok) return;
+            const deps = await r.json();
+            this.elements.deploymentsList.innerHTML = !deps.length ? '<p class="muted">No deployments</p>'
+                : deps.slice(0,5).map(d => `
+                    <div class="deployment-item">
+                        <div><span class="workflow-name">${d.environment}</span><div class="workflow-path">${d.ref} • ${new Date(d.created_at).toLocaleDateString()}</div></div>
+                    </div>`).join('');
+        } catch {}
+    }
+
+    async enablePages() {
+        const type = this.elements.pagesSourceType.value;
+        let body;
+        if (type === 'actions') { body = { build_type: 'workflow' }; }
+        else {
+            const branch = this.elements.pagesBranch.value;
+            if (!branch) { this.showStatus('Select a branch', 'error'); return; }
+            body = { build_type: 'legacy', source: { branch, path: this.elements.pagesPath.value } };
+        }
+        try {
+            this.showStatus('Updating Pages...', 'info');
+            let r = await this.api(`/repos/${this.owner}/${this.repo}/pages`, { method: 'PUT', body });
+            if (r.status === 404 || r.status === 405)
+                r = await this.api(`/repos/${this.owner}/${this.repo}/pages`, { method: 'POST', body });
+            if (!r.ok) { const e = await r.json(); throw new Error(e.message); }
+            this.showStatus('Pages updated!', 'success');
+            await this.loadPagesInfo();
+        } catch (e) { this.showStatus(`Error: ${e.message}`, 'error'); }
+    }
+
+    async disablePages() {
+        if (!confirm('Disable GitHub Pages?')) return;
+        try {
+            const r = await this.api(`/repos/${this.owner}/${this.repo}/pages`, { method: 'DELETE' });
+            if (!r.ok && r.status !== 204) throw new Error('Failed');
+            this.showStatus('Pages disabled', 'success');
+            await this.loadPagesInfo();
+        } catch (e) { this.showStatus(`Error: ${e.message}`, 'error'); }
+    }
+
+    async loadActionsInfo() {
+        if (!this.owner || !this.repo) { this.showStatus('Load a repository first', 'error'); return; }
+        this.showStatus('Loading Actions...', 'info');
+        try {
+            const r = await this.api(`/repos/${this.owner}/${this.repo}/actions/workflows`);
+            if (r.ok) { this.workflows = (await r.json()).workflows || []; this.displayRegisteredWorkflows(); }
+            await this.loadWorkflowRuns();
+            this.showStatus('Actions loaded', 'success');
+        } catch (e) { this.showStatus(`Error: ${e.message}`, 'error'); }
+    }
+
+    displayRegisteredWorkflows() {
+        this.elements.workflowsList.innerHTML = !this.workflows.length ? '<p class="muted">No workflows found</p>'
+            : this.workflows.map(wf => `
+                <div class="workflow-item">
+                    <div><div class="workflow-name">${wf.name}</div><div class="workflow-path">${wf.path}</div></div>
+                    <span class="run-status ${wf.state}">${wf.state}</span>
+                </div>`).join('');
+    }
+
+    async loadWorkflowRuns() {
+        try {
+            const r = await this.api(`/repos/${this.owner}/${this.repo}/actions/runs?per_page=10`);
+            if (!r.ok) return;
+            const runs = (await r.json()).workflow_runs || [];
+            this.elements.workflowRuns.innerHTML = !runs.length ? '<p class="muted">No recent runs</p>'
+                : runs.map(run => `
+                    <div class="run-item">
+                        <div><div class="run-name">${run.name}</div><div class="workflow-path">${run.head_branch} • ${new Date(run.created_at).toLocaleDateString()}</div></div>
+                        <span class="run-status ${run.conclusion||run.status}">${run.conclusion||run.status}</span>
+                    </div>`).join('');
+        } catch {}
+    }
+
+    showStatus(message, type) {
+        this.elements.status.textContent = message;
+        this.elements.status.className = `status ${type}`;
+        if (type !== 'info') setTimeout(() => { this.elements.status.className = 'status'; }, 4000);
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => { window.editor = new GitHubEditor(); });
+    </script>
 </body>
 </html>
