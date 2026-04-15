@@ -707,7 +707,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
                         <div class="section-card">
                             <h3>📦 Repository</h3>
                             <div class="manage-grid">
-                                <div class="manage-card">
+                        <div class="manage-card">
                                     <div class="manage-card-icon">➕</div>
                                     <h4>Create Repository</h4>
                                     <div class="config-form">
@@ -722,6 +722,17 @@ button:disabled{opacity:.5;cursor:not-allowed}
                                     </div>
                                 </div>
                                 <div class="manage-card">
+                                    <div class="manage-card-icon">🍴</div>
+                                    <h4>Fork Repository</h4>
+                                    <div class="config-form">
+                                        <div class="config-row"><label>Owner/Repo to Fork:</label><input type="text" id="fork-source" placeholder="owner/repo-name"></div>
+                                        <div class="config-row"><label>Fork Name (optional):</label><input type="text" id="fork-name" placeholder="Leave blank to keep original"></div>
+                                        <div class="config-row"><label>Organization (optional):</label><input type="text" id="fork-org" placeholder="Leave blank for your account"></div>
+                                        <div class="config-row"><label class="checkbox-label"><input type="checkbox" id="fork-default-branch-only"> Default branch only</label></div>
+                                        <button id="fork-repo-btn" class="primary-btn">🍴 Fork</button>
+                                    </div>
+                                    <div id="fork-result" style="margin-top:10px;"></div>
+                                </div>                                <div class="manage-card">
                                     <div class="manage-card-icon">✏️</div>
                                     <h4>Rename Repository</h4>
                                     <div class="config-form">
@@ -1015,6 +1026,9 @@ class GitHubEditor {
             newRepoName: $('new-repo-name'), newRepoDesc: $('new-repo-desc'),
             newRepoVisibility: $('new-repo-visibility'), newRepoReadme: $('new-repo-readme'),
             newRepoCodespaceYml: $('new-repo-codespace-yml'), createRepoBtn: $('create-repo-btn'),
+            forkSource: $('fork-source'), forkName: $('fork-name'), forkOrg: $('fork-org'),
+            forkDefaultBranchOnly: $('fork-default-branch-only'), forkRepoBtn: $('fork-repo-btn'),
+            forkResult: $('fork-result'),
             renameRepoCurrent: $('rename-repo-current'), renameRepoNew: $('rename-repo-new'),
             renameRepoBtn: $('rename-repo-btn'),
             deleteRepoConfirm: $('delete-repo-confirm'), deleteRepoBtn: $('delete-repo-btn'),
@@ -1071,6 +1085,7 @@ class GitHubEditor {
         this.elements.triggerWorkflow.addEventListener('click', () => this.triggerWorkflow());
 
         this.elements.createRepoBtn.addEventListener('click', () => this.createRepository());
+        this.elements.forkRepoBtn.addEventListener('click', () => this.forkRepository());
         this.elements.renameRepoBtn.addEventListener('click', () => this.renameRepository());
         this.elements.deleteRepoBtn.addEventListener('click', () => this.deleteRepository());
         this.elements.deleteRepoConfirm.addEventListener('input', () => {
@@ -1285,49 +1300,78 @@ class GitHubEditor {
         } catch (e) { this.showStatus(`Error: ${e.message}`, 'error'); }
     }
 
-    async listRepositories() {
-        if (!this.token) { this.showStatus('Enter your PAT first', 'error'); return; }
-        this.showStatus('Loading repositories...', 'info');
+    async forkRepository() {
+        const source = this.elements.forkSource.value.trim();
+        if (!source || !source.includes('/')) {
+            this.showStatus('Enter source as owner/repo', 'error'); return;
+        }
+
+        const [srcOwner, srcRepo] = source.split('/');
+        const forkName = this.elements.forkName.value.trim();
+        const forkOrg  = this.elements.forkOrg.value.trim();
+        const defaultBranchOnly = this.elements.forkDefaultBranchOnly.checked;
+
         try {
-            const res = await this.api('/user/repos?per_page=50&sort=updated');
-            if (!res.ok) throw new Error(res.statusText);
-            const repos = await res.json();
+            this.showStatus(`Forking ${source}...`, 'info');
+            this.elements.forkRepoBtn.disabled = true;
+            this.elements.forkResult.innerHTML = '';
 
-            if (repos.length === 0) {
-                this.elements.reposList.innerHTML = '<p class="muted">No repositories found</p>';
-                return;
-            }
+            const body = { default_branch_only: defaultBranchOnly };
+            if (forkName)  body.name         = forkName;
+            if (forkOrg)   body.organization = forkOrg;
 
-            this.elements.reposList.innerHTML = repos.map(r => `
-                <div class="repo-list-item">
-                    <div class="repo-info">
-                        <span class="repo-name">${r.full_name}</span>
-                        <span class="repo-meta">
-                            ${r.private ? '🔒 Private' : '🌐 Public'} •
-                            ${r.language || 'No language'} •
-                            Updated ${new Date(r.updated_at).toLocaleDateString()}
-                        </span>
-                    </div>
-                    <button class="load-repo-btn primary-btn"
-                        data-owner="${r.owner.login}" data-repo="${r.name}" data-branch="${r.default_branch}">
-                        Load
-                    </button>
-                </div>
-            `).join('');
-
-            this.elements.reposList.querySelectorAll('.load-repo-btn').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    this.elements.repoOwner.value = btn.dataset.owner;
-                    this.elements.repoName.value  = btn.dataset.repo;
-                    this.elements.branch.value    = btn.dataset.branch;
-                    this.loadRepository();
-                });
+            const res = await this.api(`/repos/${srcOwner}/${srcRepo}/forks`, {
+                method: 'POST', body
             });
 
-            this.showStatus(`Loaded ${repos.length} repositories`, 'success');
-        } catch (e) { this.showStatus(`Error: ${e.message}`, 'error'); }
+            if (!res.ok) { const e = await res.json(); throw new Error(e.message); }
+            const data = await res.json();
+
+            this.elements.forkResult.innerHTML = `
+                <div style="padding:10px;background:#0d1117;border-radius:6px;border-left:3px solid #3fb950;">
+                    <div style="color:#3fb950;font-weight:600;margin-bottom:6px;">✅ Fork created!</div>
+                    <div style="font-size:12px;color:#8b949e;margin-bottom:4px;">
+                        <strong style="color:#c9d1d9;">Name:</strong> ${data.full_name}
+                    </div>
+                    <div style="font-size:12px;color:#8b949e;margin-bottom:4px;">
+                        <strong style="color:#c9d1d9;">Visibility:</strong> ${data.private ? '🔒 Private' : '🌐 Public'}
+                    </div>
+                    <div style="font-size:12px;color:#8b949e;margin-bottom:8px;">
+                        <strong style="color:#c9d1d9;">Default branch:</strong> ${data.default_branch}
+                    </div>
+                    <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                        <button class="primary-btn" style="font-size:11px;padding:4px 10px;"
+                            onclick="
+                                document.getElementById('repo-owner').value='${data.owner.login}';
+                                document.getElementById('repo-name').value='${data.name}';
+                                document.getElementById('branch').value='${data.default_branch}';
+                                editor.loadRepository();
+                            ">
+                            Load Fork
+                        </button>
+                        <a href="${data.html_url}" target="_blank"
+                            style="display:inline-flex;align-items:center;padding:4px 10px;background:#21262d;border:1px solid #30363d;border-radius:6px;color:#58a6ff;text-decoration:none;font-size:11px;font-weight:600;">
+                            View on GitHub ↗
+                        </a>
+                    </div>
+                </div>`;
+
+            this.showStatus(`Forked to ${data.full_name}!`, 'success');
+            this.elements.forkSource.value = '';
+            this.elements.forkName.value   = '';
+            this.elements.forkOrg.value    = '';
+        } catch (e) {
+            this.elements.forkResult.innerHTML = `
+                <div style="padding:8px;background:#3d0000;border-radius:6px;border-left:3px solid #f85149;color:#f85149;font-size:12px;">
+                    ❌ ${e.message}
+                </div>`;
+            this.showStatus(`Error: ${e.message}`, 'error');
+        } finally {
+            this.elements.forkRepoBtn.disabled = false;
+        }
     }
 
+    async listRepositories() {
     async createBranch() {
         const name = this.elements.newBranchName.value.trim();
         const from = this.elements.newBranchFrom.value;
@@ -1917,128 +1961,42 @@ class GitHubEditor {
         if (refInput) refInput.value = this.branch;
     }
 
-parseWorkflowFile(content) {
-    const info = { name: 'Unknown', triggers: [], inputs: [] };
+    parseWorkflowFile(content) {
+        const info = { name: 'Unknown', triggers: [], inputs: [] };
+        const nm = content.match(/^name:\s*['"]?(.+?)['"]?\s*$/m); if (nm) info.name = nm[1].trim();
+        const onI = content.match(/^on:\s*\[([^\]]+)\]/m);
+        const onS = content.match(/^on:\s+(\w[\w_]+)\s*$/m);
+        const onB = content.match(/^on:\s*\n([\s\S]*?)(?=\n\S)/m);
+        if (onI) info.triggers = onI[1].split(',').map(t=>t.trim());
+        else if (onS) info.triggers = [onS[1].trim()];
+        else if (onB) info.triggers = [...onB[1].matchAll(/^\s{2}(\w[\w_]+)\s*:/gm)].map(m=>m[1]);
+        if (!info.triggers.includes('workflow_dispatch') && content.includes('workflow_dispatch')) info.triggers.push('workflow_dispatch');
 
-    // Name
-    const nm = content.match(/^name:\s*['"]?(.+?)['"]?\s*$/m);
-    if (nm) info.name = nm[1].trim();
-
-    // ── Trigger detection ──────────────────────────────────────────────────
-    // Strategy: try multiple on: forms, then fall back to plain string search
-
-    // Form 1: on: [push, pull_request, workflow_dispatch]
-    const onInline = content.match(/^on:\s*\[([^\]]+)\]/m);
-    if (onInline) {
-        info.triggers = onInline[1].split(',').map(t => t.trim().replace(/['"]/g, ''));
-    }
-
-    // Form 2: on: push  (single value, same line)
-    if (!info.triggers.length) {
-        const onSingle = content.match(/^on:\s+(\w[\w_]+)\s*$/m);
-        if (onSingle) info.triggers = [onSingle[1].trim()];
-    }
-
-    // Form 3: on:\n  push:\n  workflow_dispatch:  (block mapping)
-    if (!info.triggers.length) {
-        const onIdx = content.search(/^on:\s*$/m);
-        if (onIdx !== -1) {
-            // Grab everything after "on:" until a top-level non-indented key
-            const afterOn = content.slice(onIdx + content.slice(onIdx).match(/^on:\s*$/m)[0].length);
-            const block = afterOn.match(/^((?:[ \t]+.+\n?)*)/m);
-            if (block) {
-                const triggers = [...block[1].matchAll(/^[ \t]+(\w[\w_]+)\s*:/gm)].map(m => m[1]);
-                info.triggers = triggers;
+        const db = content.match(/workflow_dispatch:\s*\n([\s\S]*?)(?=\n\s{2}[a-z_]+:|\njobs:)/);
+        if (db) {
+            const ib = db[1].match(/inputs:\s*\n([\s\S]*)/);
+            if (ib) {
+                const sec = ib[1], re = /^[ ]{6}(\w+):\s*$/gm; let m;
+                while ((m = re.exec(sec)) !== null) {
+                    const name = m[1], start = m.index + m[0].length;
+                    const ni = sec.slice(start).search(/^[ ]{6}\w+:/m);
+                    const blk = ni >= 0 ? sec.slice(start, start+ni) : sec.slice(start);
+                    const options = [];
+                    const ob = blk.match(/options:\s*\n([\s\S]*?)(?=\n[ ]{6,8}\w+:|\Z)/);
+                    if (ob) for (const ov of ob[1].matchAll(/^\s+-\s*['"]?(.+?)['"]?\s*$/gm)) options.push(ov[1]);
+                    info.inputs.push({
+                        name,
+                        description: (blk.match(/description:\s*['"]?(.+?)['"]?\s*$/) || [])[1] || '',
+                        required:    (blk.match(/required:\s*(true|false)/)            || [])[1] === 'true',
+                        default:     (blk.match(/default:\s*['"]?(.+?)['"]?\s*$/)     || [])[1] || '',
+                        type:        (blk.match(/type:\s*(\w+)/)                      || [])[1] || 'string',
+                        options
+                    });
+                }
             }
         }
+        return info;
     }
-
-    // Form 4: on:\n  workflow_dispatch:\n  push:  (no leading spaces captured above)
-    // Catch-all: scan for any top-level trigger keys under on:
-    if (!info.triggers.length) {
-        const onBlock = content.match(/^on:\s*\n([\s\S]*?)(?=\n\S|\njobs:)/m);
-        if (onBlock) {
-            info.triggers = [...onBlock[1].matchAll(/^  (\w[\w_]+)\s*[:\n]/gm)].map(m => m[1]);
-        }
-    }
-
-    // Final fallback: just scan the raw text for known trigger keywords
-    // This catches any formatting that defeated the above regexes
-    if (!info.triggers.length) {
-        const knownTriggers = [
-            'workflow_dispatch', 'push', 'pull_request', 'schedule',
-            'release', 'issues', 'issue_comment', 'pull_request_review',
-            'create', 'delete', 'fork', 'watch', 'workflow_call',
-            'repository_dispatch', 'workflow_run', 'deployment'
-        ];
-        for (const t of knownTriggers) {
-            if (content.includes(t)) info.triggers.push(t);
-        }
-    }
-
-    // Deduplicate
-    info.triggers = [...new Set(info.triggers)];
-
-    // ── Input parsing ──────────────────────────────────────────────────────
-    // Only attempt if workflow_dispatch is present
-    if (!info.triggers.includes('workflow_dispatch')) return info;
-
-    // Find the workflow_dispatch block more reliably
-    // Look for "workflow_dispatch:" and grab until next same-level key or jobs:
-    const wdMatch = content.match(
-        /^[ \t]*workflow_dispatch:\s*\n([\s\S]*?)(?=\n[ \t]*\w[\w_]*:\s*\n|\njobs:|\nsteps:)/m
-    );
-    if (!wdMatch) return info;
-
-    const wdBlock = wdMatch[1];
-
-    // Find inputs: block within workflow_dispatch
-    const inputsMatch = wdBlock.match(/^[ \t]*inputs:\s*\n([\s\S]*)/m);
-    if (!inputsMatch) return info;
-
-    const inputsBlock = inputsMatch[1];
-
-    // Each input is an 4-or-6-space indented key (child of inputs:)
-    // Detect the indentation level of the first input
-    const firstInputMatch = inputsBlock.match(/^([ \t]+)\S/m);
-    if (!firstInputMatch) return info;
-
-    const inputIndent = firstInputMatch[1];
-    const escapedIndent = inputIndent.replace(/\t/g, '\\t');
-
-    // Split into individual input blocks
-    const inputRe = new RegExp(`^${escapedIndent}(\\w+):\\s*$`, 'gm');
-    let m;
-    const inputPositions = [];
-    while ((m = inputRe.exec(inputsBlock)) !== null) {
-        inputPositions.push({ name: m[1], start: m.index + m[0].length });
-    }
-
-    for (let i = 0; i < inputPositions.length; i++) {
-        const { name, start } = inputPositions[i];
-        const end = i + 1 < inputPositions.length ? inputPositions[i + 1].start : inputsBlock.length;
-        const block = inputsBlock.slice(start, end);
-
-        const options = [];
-        const optBlock = block.match(/options:\s*\n([\s\S]*?)(?=\n[ \t]*\w+:[ \t]*$|\n[ \t]*\w+:\s*$|$)/m);
-        if (optBlock) {
-            for (const ov of optBlock[1].matchAll(/^\s*-\s*['"]?(.+?)['"]?\s*$/gm)) {
-                options.push(ov[1]);
-            }
-        }
-
-        info.inputs.push({
-            name,
-            description: (block.match(/description:\s*['"]?(.+?)['"]?\s*$/) || [])[1]?.trim() || '',
-            required:    (block.match(/required:\s*(true|false)/)            || [])[1] === 'true',
-            default:     (block.match(/default:\s*['"]?(.+?)['"]?\s*$/)     || [])[1]?.trim() || '',
-            type:        (block.match(/type:\s*(\w+)/)                      || [])[1]?.trim() || 'string',
-            options
-        });
-    }
-
-    return info;
-}
 
     buildWorkflowInfoHTML(path, info) {
         const badges = info.triggers.map(t => {
