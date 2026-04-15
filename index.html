@@ -1917,42 +1917,128 @@ class GitHubEditor {
         if (refInput) refInput.value = this.branch;
     }
 
-    parseWorkflowFile(content) {
-        const info = { name: 'Unknown', triggers: [], inputs: [] };
-        const nm = content.match(/^name:\s*['"]?(.+?)['"]?\s*$/m); if (nm) info.name = nm[1].trim();
-        const onI = content.match(/^on:\s*\[([^\]]+)\]/m);
-        const onS = content.match(/^on:\s+(\w[\w_]+)\s*$/m);
-        const onB = content.match(/^on:\s*\n([\s\S]*?)(?=\n\S)/m);
-        if (onI) info.triggers = onI[1].split(',').map(t=>t.trim());
-        else if (onS) info.triggers = [onS[1].trim()];
-        else if (onB) info.triggers = [...onB[1].matchAll(/^\s{2}(\w[\w_]+)\s*:/gm)].map(m=>m[1]);
-        if (!info.triggers.includes('workflow_dispatch') && content.includes('workflow_dispatch')) info.triggers.push('workflow_dispatch');
+parseWorkflowFile(content) {
+    const info = { name: 'Unknown', triggers: [], inputs: [] };
 
-        const db = content.match(/workflow_dispatch:\s*\n([\s\S]*?)(?=\n\s{2}[a-z_]+:|\njobs:)/);
-        if (db) {
-            const ib = db[1].match(/inputs:\s*\n([\s\S]*)/);
-            if (ib) {
-                const sec = ib[1], re = /^[ ]{6}(\w+):\s*$/gm; let m;
-                while ((m = re.exec(sec)) !== null) {
-                    const name = m[1], start = m.index + m[0].length;
-                    const ni = sec.slice(start).search(/^[ ]{6}\w+:/m);
-                    const blk = ni >= 0 ? sec.slice(start, start+ni) : sec.slice(start);
-                    const options = [];
-                    const ob = blk.match(/options:\s*\n([\s\S]*?)(?=\n[ ]{6,8}\w+:|\Z)/);
-                    if (ob) for (const ov of ob[1].matchAll(/^\s+-\s*['"]?(.+?)['"]?\s*$/gm)) options.push(ov[1]);
-                    info.inputs.push({
-                        name,
-                        description: (blk.match(/description:\s*['"]?(.+?)['"]?\s*$/) || [])[1] || '',
-                        required:    (blk.match(/required:\s*(true|false)/)            || [])[1] === 'true',
-                        default:     (blk.match(/default:\s*['"]?(.+?)['"]?\s*$/)     || [])[1] || '',
-                        type:        (blk.match(/type:\s*(\w+)/)                      || [])[1] || 'string',
-                        options
-                    });
-                }
+    // Name
+    const nm = content.match(/^name:\s*['"]?(.+?)['"]?\s*$/m);
+    if (nm) info.name = nm[1].trim();
+
+    // ── Trigger detection ──────────────────────────────────────────────────
+    // Strategy: try multiple on: forms, then fall back to plain string search
+
+    // Form 1: on: [push, pull_request, workflow_dispatch]
+    const onInline = content.match(/^on:\s*\[([^\]]+)\]/m);
+    if (onInline) {
+        info.triggers = onInline[1].split(',').map(t => t.trim().replace(/['"]/g, ''));
+    }
+
+    // Form 2: on: push  (single value, same line)
+    if (!info.triggers.length) {
+        const onSingle = content.match(/^on:\s+(\w[\w_]+)\s*$/m);
+        if (onSingle) info.triggers = [onSingle[1].trim()];
+    }
+
+    // Form 3: on:\n  push:\n  workflow_dispatch:  (block mapping)
+    if (!info.triggers.length) {
+        const onIdx = content.search(/^on:\s*$/m);
+        if (onIdx !== -1) {
+            // Grab everything after "on:" until a top-level non-indented key
+            const afterOn = content.slice(onIdx + content.slice(onIdx).match(/^on:\s*$/m)[0].length);
+            const block = afterOn.match(/^((?:[ \t]+.+\n?)*)/m);
+            if (block) {
+                const triggers = [...block[1].matchAll(/^[ \t]+(\w[\w_]+)\s*:/gm)].map(m => m[1]);
+                info.triggers = triggers;
             }
         }
-        return info;
     }
+
+    // Form 4: on:\n  workflow_dispatch:\n  push:  (no leading spaces captured above)
+    // Catch-all: scan for any top-level trigger keys under on:
+    if (!info.triggers.length) {
+        const onBlock = content.match(/^on:\s*\n([\s\S]*?)(?=\n\S|\njobs:)/m);
+        if (onBlock) {
+            info.triggers = [...onBlock[1].matchAll(/^  (\w[\w_]+)\s*[:\n]/gm)].map(m => m[1]);
+        }
+    }
+
+    // Final fallback: just scan the raw text for known trigger keywords
+    // This catches any formatting that defeated the above regexes
+    if (!info.triggers.length) {
+        const knownTriggers = [
+            'workflow_dispatch', 'push', 'pull_request', 'schedule',
+            'release', 'issues', 'issue_comment', 'pull_request_review',
+            'create', 'delete', 'fork', 'watch', 'workflow_call',
+            'repository_dispatch', 'workflow_run', 'deployment'
+        ];
+        for (const t of knownTriggers) {
+            if (content.includes(t)) info.triggers.push(t);
+        }
+    }
+
+    // Deduplicate
+    info.triggers = [...new Set(info.triggers)];
+
+    // ── Input parsing ──────────────────────────────────────────────────────
+    // Only attempt if workflow_dispatch is present
+    if (!info.triggers.includes('workflow_dispatch')) return info;
+
+    // Find the workflow_dispatch block more reliably
+    // Look for "workflow_dispatch:" and grab until next same-level key or jobs:
+    const wdMatch = content.match(
+        /^[ \t]*workflow_dispatch:\s*\n([\s\S]*?)(?=\n[ \t]*\w[\w_]*:\s*\n|\njobs:|\nsteps:)/m
+    );
+    if (!wdMatch) return info;
+
+    const wdBlock = wdMatch[1];
+
+    // Find inputs: block within workflow_dispatch
+    const inputsMatch = wdBlock.match(/^[ \t]*inputs:\s*\n([\s\S]*)/m);
+    if (!inputsMatch) return info;
+
+    const inputsBlock = inputsMatch[1];
+
+    // Each input is an 4-or-6-space indented key (child of inputs:)
+    // Detect the indentation level of the first input
+    const firstInputMatch = inputsBlock.match(/^([ \t]+)\S/m);
+    if (!firstInputMatch) return info;
+
+    const inputIndent = firstInputMatch[1];
+    const escapedIndent = inputIndent.replace(/\t/g, '\\t');
+
+    // Split into individual input blocks
+    const inputRe = new RegExp(`^${escapedIndent}(\\w+):\\s*$`, 'gm');
+    let m;
+    const inputPositions = [];
+    while ((m = inputRe.exec(inputsBlock)) !== null) {
+        inputPositions.push({ name: m[1], start: m.index + m[0].length });
+    }
+
+    for (let i = 0; i < inputPositions.length; i++) {
+        const { name, start } = inputPositions[i];
+        const end = i + 1 < inputPositions.length ? inputPositions[i + 1].start : inputsBlock.length;
+        const block = inputsBlock.slice(start, end);
+
+        const options = [];
+        const optBlock = block.match(/options:\s*\n([\s\S]*?)(?=\n[ \t]*\w+:[ \t]*$|\n[ \t]*\w+:\s*$|$)/m);
+        if (optBlock) {
+            for (const ov of optBlock[1].matchAll(/^\s*-\s*['"]?(.+?)['"]?\s*$/gm)) {
+                options.push(ov[1]);
+            }
+        }
+
+        info.inputs.push({
+            name,
+            description: (block.match(/description:\s*['"]?(.+?)['"]?\s*$/) || [])[1]?.trim() || '',
+            required:    (block.match(/required:\s*(true|false)/)            || [])[1] === 'true',
+            default:     (block.match(/default:\s*['"]?(.+?)['"]?\s*$/)     || [])[1]?.trim() || '',
+            type:        (block.match(/type:\s*(\w+)/)                      || [])[1]?.trim() || 'string',
+            options
+        });
+    }
+
+    return info;
+}
 
     buildWorkflowInfoHTML(path, info) {
         const badges = info.triggers.map(t => {
