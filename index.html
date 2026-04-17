@@ -971,30 +971,60 @@ class GitHubEditor {
 
     buildCacheKey() { return `ghcache_${this.owner}_${this.repo}_${this.branch}`; }
 
-    saveEditsToCache() {
-        if (!this.cacheKey) return;
-        localStorage.setItem(this.cacheKey, JSON.stringify({
-            owner: this.owner, repo: this.repo, branch: this.branch,
-            timestamp: Date.now(), edits: this.pendingUploads, shas: this.fileSHAs
-        }));
+saveEditsToCache() {
+    if (!this.cacheKey) return;
+    
+    try {
+        const data = {
+            owner: this.owner,
+            repo: this.repo,
+            branch: this.branch,
+            timestamp: Date.now(),
+            edits: this.pendingUploads,
+            shas: this.fileSHAs
+        };
+        
+        const jsonStr = JSON.stringify(data);
+        const sizeInMB = new Blob([jsonStr]).size / (1024 * 1024);
+        
+        // Skip localStorage if too large
+        if (sizeInMB > 4) {
+            console.warn(`Cache too large (${sizeInMB.toFixed(2)}MB) - skipping localStorage save`);
+            this.updateCacheIndicator();
+            return;
+        }
+        
+        localStorage.setItem(this.cacheKey, jsonStr);
+        this.updateCacheIndicator();
+    } catch (e) {
+        console.error('Cache save failed:', e);
         this.updateCacheIndicator();
     }
+}
 
-    loadEditsFromCache() {
-        if (!this.cacheKey) return;
-        try {
-            const raw = localStorage.getItem(this.cacheKey);
-            if (!raw) return;
-            const data = JSON.parse(raw);
-            if (data.edits) { this.pendingUploads = data.edits; this.fileContents = { ...this.fileContents, ...data.edits }; }
-            if (data.shas)  { this.fileSHAs = { ...this.fileSHAs, ...data.shas }; }
-            this.updatePendingList();
-            this.updateCacheIndicator();
-            const n = Object.keys(this.pendingUploads).length;
-            if (n > 0) this.showStatus(`Restored ${n} cached edit(s)`, 'info');
-        } catch (e) { console.error(e); }
+loadEditsFromCache() {
+    if (!this.cacheKey) return;
+    try {
+        const raw = localStorage.getItem(this.cacheKey);
+        if (!raw) return;
+        
+        const data = JSON.parse(raw);
+        if (data.edits) { 
+            this.pendingUploads = data.edits; 
+            this.fileContents = { ...this.fileContents, ...data.edits }; 
+        }
+        if (data.shas) { 
+            this.fileSHAs = { ...this.fileSHAs, ...data.shas }; 
+        }
+        
+        this.updatePendingList();
+        this.updateCacheIndicator();
+        const n = Object.keys(this.pendingUploads).length;
+        if (n > 0) this.showStatus(`Restored ${n} cached edit(s)`, 'info');
+    } catch (e) { 
+        console.error('Cache load failed:', e); 
     }
-
+}
     clearRepoCache() {
         if (!this.cacheKey) return;
         localStorage.removeItem(this.cacheKey);
@@ -1814,23 +1844,76 @@ class GitHubEditor {
         this.showStatus(`Successfully imported ${files.length} file(s)`, 'success');
     }
 
-    async handleFolderImport(e) {
-        const files = Array.from(e.target.files);
-        if (files.length === 0) return;
+ async handleFolderImport(e) {
+    const files = Array.from(e.target.files);
+    if (files.length === 0) return;
 
-        this.showStatus(`Importing ${files.length} files...`, 'info');
+    let imported = 0;
+    let failed = 0;
+    let totalSize = 0;
 
-        for (const file of files) {
-            const relativePath = file.webkitRelativePath || file.name;
-            await this.importSingleFile(file, relativePath);
+    for (const file of files) {
+        try {
+            const path = file.webkitRelativePath || file.name;
+            
+            // Skip binary files
+            if (this.isBinaryFile(path)) {
+                failed++;
+                continue;
+            }
+
+            // For very large files, truncate to 500KB
+            let content;
+            if (file.size > 512 * 1024) { // 500KB
+                const chunk = file.slice(0, 512 * 1024);
+                content = await this.readFileAsText(chunk);
+                content += `\n\n... [File truncated - original size: ${(file.size / 1024 / 1024).toFixed(2)}MB]`;
+            } else {
+                content = await this.readFileAsText(file);
+            }
+
+            this.pendingUploads[path] = content;
+            this.fileContents[path] = content;
+            totalSize += file.size;
+            imported++;
+            
+            // Show progress every 5 files
+            if (imported % 5 === 0) {
+                const sizeInMB = (totalSize / 1024 / 1024).toFixed(2);
+                this.showStatus(`Importing... ${imported}/${files.length} (${sizeInMB}MB)`, 'info');
+            }
+        } catch (err) {
+            console.error(`Failed to import ${file.name}:`, err);
+            failed++;
         }
-
-        e.target.value = '';
-        this.saveEditsToCache();
-        this.updatePendingList();
-        this.renderFileTree();
-        this.showStatus(`Successfully imported ${files.length} files`, 'success');
     }
+
+    e.target.value = '';
+    
+    // Don't save to localStorage for large imports
+    const totalMB = (totalSize / 1024 / 1024).toFixed(2);
+    if (totalSize < 4 * 1024 * 1024) { // Only cache if under 4MB
+        this.saveEditsToCache();
+    }
+    
+    this.updateCacheIndicator();
+    this.updatePendingList();
+    
+    const msg = failed === 0 
+        ? `✅ Imported ${imported} files (${totalMB}MB)` 
+        : `⚠️ Imported ${imported}, failed ${failed}`;
+    
+    this.showStatus(msg, failed === 0 ? 'success' : 'error');
+}
+
+readFileAsText(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = e => resolve(e.target.result);
+        reader.onerror = () => reject(new Error(`Failed to read ${file.name}`));
+        reader.readAsText(file);
+    });
+}
 
     importSingleFile(file, path) {
         return new Promise(resolve => {
