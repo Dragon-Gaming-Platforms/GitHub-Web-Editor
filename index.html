@@ -857,7 +857,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
     </div>
     <div id="status" class="status"></div>
 
-    <script>
+<script>
 const CODESPACE_START_WORKFLOW = `name: Start Codespace
 on:
   workflow_dispatch:
@@ -936,7 +936,7 @@ function initMonaco() {
         });
 
         monacoEditor.onDidChangeModelContent(() => {
-            if (window.editor && window.editor.currentFile) {
+            if (window.editor && window.editor.currentFile && window.editor.isEditing) {
                 window.editor.pendingUploads[window.editor.currentFile] = monacoEditor.getValue();
                 window.editor.onEditorChange();
             }
@@ -953,6 +953,7 @@ class GitHubEditor {
         this.repo = '';
         this.branch = 'main';
         this.currentFile = null;
+        this.isEditing = false; // Track if user is editing
         this.files = {};
         this.fileTree = [];
         this.fileContents = {};
@@ -971,60 +972,52 @@ class GitHubEditor {
 
     buildCacheKey() { return `ghcache_${this.owner}_${this.repo}_${this.branch}`; }
 
-saveEditsToCache() {
-    if (!this.cacheKey) return;
-    
-    try {
-        const data = {
-            owner: this.owner,
-            repo: this.repo,
-            branch: this.branch,
-            timestamp: Date.now(),
-            edits: this.pendingUploads,
-            shas: this.fileSHAs
-        };
+    saveEditsToCache() {
+        if (!this.cacheKey) return;
         
-        const jsonStr = JSON.stringify(data);
-        const sizeInMB = new Blob([jsonStr]).size / (1024 * 1024);
-        
-        // Skip localStorage if too large
-        if (sizeInMB > 4) {
-            console.warn(`Cache too large (${sizeInMB.toFixed(2)}MB) - skipping localStorage save`);
+        try {
+            const data = {
+                owner: this.owner,
+                repo: this.repo,
+                branch: this.branch,
+                timestamp: Date.now(),
+                edits: this.pendingUploads,
+                shas: this.fileSHAs
+            };
+            
+            const jsonStr = JSON.stringify(data);
+            const sizeInMB = new Blob([jsonStr]).size / (1024 * 1024);
+            
+            // Skip localStorage if too large
+            if (sizeInMB > 4) {
+                console.warn(`Cache too large (${sizeInMB.toFixed(2)}MB) - skipping localStorage save`);
+                this.updateCacheIndicator();
+                return;
+            }
+            
+            localStorage.setItem(this.cacheKey, jsonStr);
             this.updateCacheIndicator();
-            return;
+        } catch (e) {
+            console.error('Cache save failed:', e);
+            this.updateCacheIndicator();
         }
-        
-        localStorage.setItem(this.cacheKey, jsonStr);
-        this.updateCacheIndicator();
-    } catch (e) {
-        console.error('Cache save failed:', e);
-        this.updateCacheIndicator();
     }
-}
 
-loadEditsFromCache() {
-    if (!this.cacheKey) return;
-    try {
-        const raw = localStorage.getItem(this.cacheKey);
-        if (!raw) return;
-        
-        const data = JSON.parse(raw);
-        if (data.edits) { 
-            this.pendingUploads = data.edits; 
-            this.fileContents = { ...this.fileContents, ...data.edits }; 
-        }
-        if (data.shas) { 
-            this.fileSHAs = { ...this.fileSHAs, ...data.shas }; 
-        }
-        
-        this.updatePendingList();
-        this.updateCacheIndicator();
-        const n = Object.keys(this.pendingUploads).length;
-        if (n > 0) this.showStatus(`Restored ${n} cached edit(s)`, 'info');
-    } catch (e) { 
-        console.error('Cache load failed:', e); 
+    loadEditsFromCache() {
+        if (!this.cacheKey) return;
+        try {
+            const raw = localStorage.getItem(this.cacheKey);
+            if (!raw) return;
+            const data = JSON.parse(raw);
+            if (data.edits) { this.pendingUploads = data.edits; this.fileContents = { ...this.fileContents, ...data.edits }; }
+            if (data.shas)  { this.fileSHAs = { ...this.fileSHAs, ...data.shas }; }
+            this.updatePendingList();
+            this.updateCacheIndicator();
+            const n = Object.keys(this.pendingUploads).length;
+            if (n > 0) this.showStatus(`Restored ${n} cached edit(s)`, 'info');
+        } catch (e) { console.error(e); }
     }
-}
+
     clearRepoCache() {
         if (!this.cacheKey) return;
         localStorage.removeItem(this.cacheKey);
@@ -1203,17 +1196,9 @@ loadEditsFromCache() {
         } catch { return btoa(unescape(encodeURIComponent(text))); }
     }
 
-async api(path, options = {}) {
-    const timeout = options.timeout || 10000; // Default 10 seconds
-    delete options.timeout; // Remove custom property
-
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeout);
-
-    try {
+    async api(path, options = {}) {
         const res = await fetch(`https://api.github.com${path}`, {
             ...options,
-            signal: controller.signal,
             headers: {
                 Authorization: `token ${this.token}`,
                 Accept: 'application/vnd.github.v3+json',
@@ -1222,17 +1207,8 @@ async api(path, options = {}) {
             },
             body: options.body ? JSON.stringify(options.body) : undefined
         });
-
-        clearTimeout(timeoutId);
         return res;
-    } catch (e) {
-        clearTimeout(timeoutId);
-        if (e.name === 'AbortError') {
-            throw new Error('Request timeout - GitHub API took too long');
-        }
-        throw e;
     }
-}
 
     async loadRepository() {
         this.token  = this.elements.patToken.value.trim();
@@ -1715,10 +1691,13 @@ async api(path, options = {}) {
 
     async loadFile(path) {
         try {
+            // Mark that we're viewing (not editing)
+            this.isEditing = false;
+            this.currentFile = path;
+
             if (this.pendingUploads[path] !== undefined) {
                 if (monacoEditor) monacoEditor.setValue(this.pendingUploads[path]);
                 this.elements.currentFile.textContent = `${path} ✏️`;
-                this.currentFile = path;
             } else {
                 const res = await this.api(`/repos/${this.owner}/${this.repo}/contents/${encodeURIComponent(path)}?ref=${this.branch}`);
                 if (!res.ok) throw new Error(res.statusText);
@@ -1751,6 +1730,9 @@ async api(path, options = {}) {
             document.querySelectorAll('.file-item').forEach(el =>
                 el.classList.toggle('active', el.dataset.path === path));
             this.showStatus('File loaded', 'success');
+
+            // NOW enable editing
+            this.isEditing = true;
         } catch (e) { this.showStatus(`Error: ${e.message}`, 'error'); }
     }
 
@@ -1764,6 +1746,7 @@ async api(path, options = {}) {
         const name = prompt('File name (include path if needed):');
         if (!name) return;
         this.currentFile = name;
+        this.isEditing = true; // New files start in edit mode
         this.pendingUploads[name] = '';
         this.fileContents[name] = '';
         if (monacoEditor) monacoEditor.setValue('');
@@ -1776,7 +1759,7 @@ async api(path, options = {}) {
     }
 
     onEditorChange() {
-        if (!this.currentFile) return;
+        if (!this.currentFile || !this.isEditing) return;
         const content = monacoEditor ? monacoEditor.getValue() : '';
         this.pendingUploads[this.currentFile] = content;
         this.fileContents[this.currentFile] = content;
@@ -1838,6 +1821,7 @@ async api(path, options = {}) {
             delete this.pendingUploads[this.currentFile];
             this.saveEditsToCache();
             this.currentFile = null;
+            this.isEditing = false;
             if (monacoEditor) monacoEditor.setValue('');
             this.elements.currentFile.textContent = 'No file selected';
             this.elements.saveFile.disabled = true;
@@ -1861,76 +1845,75 @@ async api(path, options = {}) {
         this.showStatus(`Successfully imported ${files.length} file(s)`, 'success');
     }
 
- async handleFolderImport(e) {
-    const files = Array.from(e.target.files);
-    if (files.length === 0) return;
+    async handleFolderImport(e) {
+        const files = Array.from(e.target.files);
+        if (files.length === 0) return;
 
-    let imported = 0;
-    let failed = 0;
-    let totalSize = 0;
+        this.showStatus(`Importing ${files.length} files...`, 'info');
 
-    for (const file of files) {
-        try {
-            const path = file.webkitRelativePath || file.name;
-            
-            // Skip binary files
-            if (this.isBinaryFile(path)) {
+        let imported = 0;
+        let failed = 0;
+        let totalSize = 0;
+
+        for (const file of files) {
+            try {
+                const path = file.webkitRelativePath || file.name;
+                
+                if (this.isBinaryFile(path)) {
+                    failed++;
+                    continue;
+                }
+
+                let content;
+                if (file.size > 512 * 1024) {
+                    const chunk = file.slice(0, 512 * 1024);
+                    content = await this.readFileAsText(chunk);
+                    content += `\n\n... [File truncated - original size: ${(file.size / 1024 / 1024).toFixed(2)}MB]`;
+                } else {
+                    content = await this.readFileAsText(file);
+                }
+
+                this.pendingUploads[path] = content;
+                this.fileContents[path] = content;
+                totalSize += file.size;
+                imported++;
+                
+                if (imported % 5 === 0) {
+                    const sizeInMB = (totalSize / 1024 / 1024).toFixed(2);
+                    this.showStatus(`Importing... ${imported}/${files.length} (${sizeInMB}MB)`, 'info');
+                }
+            } catch (err) {
+                console.error(`Failed to import ${file.name}:`, err);
                 failed++;
-                continue;
             }
-
-            // For very large files, truncate to 500KB
-            let content;
-            if (file.size > 512 * 1024) { // 500KB
-                const chunk = file.slice(0, 512 * 1024);
-                content = await this.readFileAsText(chunk);
-                content += `\n\n... [File truncated - original size: ${(file.size / 1024 / 1024).toFixed(2)}MB]`;
-            } else {
-                content = await this.readFileAsText(file);
-            }
-
-            this.pendingUploads[path] = content;
-            this.fileContents[path] = content;
-            totalSize += file.size;
-            imported++;
-            
-            // Show progress every 5 files
-            if (imported % 5 === 0) {
-                const sizeInMB = (totalSize / 1024 / 1024).toFixed(2);
-                this.showStatus(`Importing... ${imported}/${files.length} (${sizeInMB}MB)`, 'info');
-            }
-        } catch (err) {
-            console.error(`Failed to import ${file.name}:`, err);
-            failed++;
         }
+
+        e.target.value = '';
+        
+        const totalMB = (totalSize / 1024 / 1024).toFixed(2);
+        if (totalSize < 4 * 1024 * 1024) {
+            this.saveEditsToCache();
+        }
+        
+        this.updateCacheIndicator();
+        this.updatePendingList();
+        this.renderFileTree();
+        
+        const msg = failed === 0 
+            ? `✅ Imported ${imported} files (${totalMB}MB)` 
+            : `⚠️ Imported ${imported}, failed ${failed}`;
+        
+        this.showStatus(msg, failed === 0 ? 'success' : 'error');
     }
 
-    e.target.value = '';
-    
-    // Don't save to localStorage for large imports
-    const totalMB = (totalSize / 1024 / 1024).toFixed(2);
-    if (totalSize < 4 * 1024 * 1024) { // Only cache if under 4MB
-        this.saveEditsToCache();
+    readFileAsText(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = e => resolve(e.target.result);
+            reader.onerror = () => reject(new Error(`Failed to read ${file.name}`));
+            reader.readAsText(file);
+        });
     }
-    
-    this.updateCacheIndicator();
-    this.updatePendingList();
-    
-    const msg = failed === 0 
-        ? `✅ Imported ${imported} files (${totalMB}MB)` 
-        : `⚠️ Imported ${imported}, failed ${failed}`;
-    
-    this.showStatus(msg, failed === 0 ? 'success' : 'error');
-}
-
-readFileAsText(file) {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = e => resolve(e.target.result);
-        reader.onerror = () => reject(new Error(`Failed to read ${file.name}`));
-        reader.readAsText(file);
-    });
-}
 
     importSingleFile(file, path) {
         return new Promise(resolve => {
@@ -1943,23 +1926,30 @@ readFileAsText(file) {
     updatePendingList() {
         const paths = Object.keys(this.pendingUploads);
         this.elements.batchCommitBtn.disabled = paths.length === 0;
+        
         if (paths.length === 0) {
             this.elements.pendingImports.innerHTML = '<p class="muted">No pending changes</p>';
-        } else {
-            this.elements.pendingImports.innerHTML = `
-                <h4>Pending (${paths.length})</h4>
-                ${paths.map(p => `
-                    <div class="pending-item">
-                        <span>${p}</span>
-                        <button class="remove-btn" data-path="${p}">✕</button>
-                    </div>`).join('')}`;
-            this.elements.pendingImports.querySelectorAll('.remove-btn').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    delete this.pendingUploads[btn.dataset.path];
-                    this.saveEditsToCache(); this.updatePendingList(); this.renderFileTree();
-                });
-            });
+            return;
         }
+
+        let html = `<h4>Pending (${paths.length})</h4>`;
+        html += paths.map(p => `
+            <div class="pending-item">
+                <span>${p}</span>
+                <button class="remove-btn" data-path="${p}">✕</button>
+            </div>`).join('');
+        
+        this.elements.pendingImports.innerHTML = html;
+        
+        this.elements.pendingImports.querySelectorAll('.remove-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                delete this.pendingUploads[btn.dataset.path];
+                this.saveEditsToCache();
+                this.updatePendingList();
+                this.renderFileTree();
+            });
+        });
+
         this.updateCacheIndicator();
     }
 
@@ -2002,122 +1992,167 @@ readFileAsText(file) {
         document.body.appendChild(a); a.click(); document.body.removeChild(a);
     }
 
-async batchCommit() {
-    const paths = Object.keys(this.pendingUploads);
-    if (!paths.length) { this.showStatus('No pending changes', 'error'); return; }
-    
-    const message = this.elements.batchCommitMessage.value.trim() || 'Update files';
-    if (!confirm(`Push ${paths.length} file(s)?\n"${message}"`)) return;
-
-    // Filter out files that are too large
-    const validFiles = [];
-    const skippedFiles = [];
-    
-    for (const path of paths) {
-        const content = this.pendingUploads[path];
-        const sizeInMB = new Blob([content]).size / (1024 * 1024);
+    async batchCommit() {
+        const paths = Object.keys(this.pendingUploads);
+        if (!paths.length) { this.showStatus('No pending changes', 'error'); return; }
         
-        // Skip files larger than 5MB (GitHub gets slow with these)
-        if (sizeInMB > 5) {
-            skippedFiles.push({ path, size: sizeInMB.toFixed(2) });
-        } else {
-            validFiles.push(path);
-        }
-    }
+        const message = this.elements.batchCommitMessage.value.trim() || 'Update files';
+        if (!confirm(`Push ${paths.length} file(s)?\n"${message}"`)) return;
 
-    if (skippedFiles.length > 0) {
-        const skipMsg = skippedFiles.map(f => `${f.path} (${f.size}MB)`).join('\n');
-        alert(`⚠️ These files are too large to push via GitHub API:\n\n${skipMsg}\n\nYou can push them separately or use Git CLI.`);
-    }
-
-    if (validFiles.length === 0) {
-        this.showStatus('No files small enough to push', 'error');
-        return;
-    }
-
-    // Push in smaller batches with delays
-    let saved = 0;
-    let failed = 0;
-    const batchSize = 5; // Push 5 files at a time
-    const delayMs = 1000; // 1 second between batches
-
-    for (let i = 0; i < validFiles.length; i += batchSize) {
-        const batch = validFiles.slice(i, i + batchSize);
+        const validFiles = [];
+        const skippedFiles = [];
         
-        this.showStatus(`Pushing batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(validFiles.length / batchSize)}...`, 'info');
-
-        // Push files in parallel within batch
-        const batchPromises = batch.map(path => this.pushSingleFile(path, message));
-        const results = await Promise.allSettled(batchPromises);
-
-        // Count successes/failures
-        results.forEach((result, idx) => {
-            if (result.status === 'fulfilled') {
-                saved++;
-                delete this.pendingUploads[batch[idx]];
+        for (const path of paths) {
+            const content = this.pendingUploads[path];
+            const sizeInMB = new Blob([content]).size / (1024 * 1024);
+            
+            if (sizeInMB > 5) {
+                skippedFiles.push({ path, size: sizeInMB.toFixed(2) });
             } else {
-                failed++;
-                console.error(`Failed to push ${batch[idx]}:`, result.reason);
+                validFiles.push(path);
             }
-        });
+        }
 
-        // Wait before next batch (avoid rate limiting)
-        if (i + batchSize < validFiles.length) {
-            await new Promise(resolve => setTimeout(resolve, delayMs));
+        if (skippedFiles.length > 0) {
+            const skipMsg = skippedFiles.map(f => `${f.path} (${f.size}MB)`).join('\n');
+            console.warn(`Files too large:\n${skipMsg}`);
+        }
+
+        if (validFiles.length === 0) {
+            this.showStatus('No files to push', 'error');
+            return;
+        }
+
+        let saved = 0;
+        let failed = 0;
+        const failedPaths = [];
+
+        for (let i = 0; i < validFiles.length; i++) {
+            const path = validFiles[i];
+            
+            this.showStatus(`Pushing ${i + 1}/${validFiles.length}: ${path.split('/').pop()}...`, 'info');
+
+            try {
+                await this.pushSingleFile(path, message);
+                saved++;
+                delete this.pendingUploads[path];
+                
+                if (i < validFiles.length - 1) {
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                }
+            } catch (e) {
+                failed++;
+                failedPaths.push({ path, error: e.message });
+                console.error(`Failed to push ${path}:`, e.message);
+                
+                await new Promise(resolve => setTimeout(resolve, 2000));
+            }
+        }
+
+        this.saveEditsToCache();
+        this.updatePendingList();
+        this.updateCacheIndicator();
+
+        const msg = `✅ Pushed ${saved}/${validFiles.length}`;
+        const failMsg = failed > 0 ? ` (${failed} failed - try again later)` : '';
+        
+        this.showStatus(msg + failMsg, failed === 0 && saved > 0 ? 'success' : 'error');
+
+        if (failedPaths.length > 0) {
+            console.log('Failed files (try pushing again):');
+            failedPaths.forEach(f => console.log(`  - ${f.path}: ${f.error}`));
+        }
+
+        if (saved > 0) {
+            try {
+                await this.fetchRepositoryTree();
+                this.populateWorkflowDropdown();
+                this.populateDeployDropdown();
+            } catch (e) {
+                console.error('Error refreshing repo:', e);
+            }
         }
     }
 
-    // Cleanup
-    this.saveEditsToCache();
-    this.updatePendingList();
-    this.updateCacheIndicator();
+    async pushSingleFile(path, message) {
+        const content = this.pendingUploads[path];
+        const body = { 
+            message, 
+            content: this.encodeBase64(content), 
+            branch: this.branch 
+        };
+        
+        if (this.fileSHAs[path]) {
+            body.sha = this.fileSHAs[path];
+        }
 
-    const successMsg = saved > 0 
-        ? `✅ Pushed ${saved}/${validFiles.length} files!`
-        : 'No files pushed';
-    
-    const failMsg = failed > 0 
-        ? ` (${failed} failed)` 
-        : '';
+        const res = await this.api(
+            `/repos/${this.owner}/${this.repo}/contents/${encodeURIComponent(path)}`,
+            { method: 'PUT', body }
+        );
 
-    this.showStatus(successMsg + failMsg, failed === 0 && saved > 0 ? 'success' : 'error');
+        if (!res.ok) {
+            const error = await res.json().catch(() => ({}));
+            throw new Error(error.message || `HTTP ${res.status}`);
+        }
 
-    if (saved > 0) {
-        await this.fetchRepositoryTree();
-        this.populateWorkflowDropdown();
-        this.populateDeployDropdown();
-    }
-}
-
-// New helper method
-async pushSingleFile(path, message) {
-    const content = this.pendingUploads[path];
-    const body = { 
-        message, 
-        content: this.encodeBase64(content), 
-        branch: this.branch 
-    };
-    
-    if (this.fileSHAs[path]) {
-        body.sha = this.fileSHAs[path];
+        const data = await res.json();
+        this.fileSHAs[path] = data.content.sha;
+        this.fileContents[path] = content;
+        
+        return data;
     }
 
-    const res = await this.api(
-        `/repos/${this.owner}/${this.repo}/contents/${encodeURIComponent(path)}`,
-        { method: 'PUT', body, timeout: 30000 } // 30 second timeout
-    );
-
-    if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.message || res.statusText);
+    populateWorkflowDropdown() { 
+        this._fillYmlDropdown(this.elements.workflowFileSelect, this.elements.workflowRef); 
     }
 
-    const data = await res.json();
-    this.fileSHAs[path] = data.content.sha;
-    this.fileContents[path] = content;
-    
-    return data;
-}
+    populateDeployDropdown() {   
+        this._fillYmlDropdown(this.elements.deployWorkflowSelect, this.elements.deployRef); 
+    }
+
+    _fillYmlDropdown(select, refInput) {
+        select.innerHTML = '';
+        if (!this.ymlFiles.length) {
+            select.innerHTML = '<option value="">No .yml files found</option>'; 
+            return;
+        }
+        
+        const wf = this.ymlFiles.filter(f => f.isWorkflow).sort((a,b) => a.path.localeCompare(b.path));
+        const ot = this.ymlFiles.filter(f => !f.isWorkflow).sort((a,b) => a.path.localeCompare(b.path));
+
+        const def = document.createElement('option');
+        def.value = ''; 
+        def.textContent = `── Select YAML file (${this.ymlFiles.length}) ──`;
+        select.appendChild(def);
+
+        if (wf.length) {
+            const g = document.createElement('optgroup');
+            g.label = `⚙️  Workflows (${wf.length})`;
+            wf.forEach(f => { 
+                const o = document.createElement('option'); 
+                o.value = f.path; 
+                o.textContent = `${f.path}  @${this.branch}`; 
+                g.appendChild(o); 
+            });
+            select.appendChild(g);
+        }
+        
+        if (ot.length) {
+            const g = document.createElement('optgroup');
+            g.label = `📄  Other YAML (${ot.length})`;
+            ot.forEach(f => { 
+                const o = document.createElement('option'); 
+                o.value = f.path; 
+                o.textContent = `${f.path}  @${this.branch}`; 
+                g.appendChild(o); 
+            });
+            select.appendChild(g);
+        }
+        
+        if (refInput) refInput.value = this.branch;
+    }
+
     parseWorkflowFile(content) {
         const info = { name: 'Unknown', triggers: [], inputs: [] };
         const nm = content.match(/^name:\s*['"]?(.+?)['"]?\s*$/m); if (nm) info.name = nm[1].trim();
@@ -2464,6 +2499,6 @@ async pushSingleFile(path, message) {
 document.addEventListener('DOMContentLoaded', () => {
     window.editor = new GitHubEditor();
 });
-    </script>
+</script>
 </body>
 </html>
