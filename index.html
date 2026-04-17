@@ -1203,9 +1203,17 @@ loadEditsFromCache() {
         } catch { return btoa(unescape(encodeURIComponent(text))); }
     }
 
-    async api(path, options = {}) {
+async api(path, options = {}) {
+    const timeout = options.timeout || 10000; // Default 10 seconds
+    delete options.timeout; // Remove custom property
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+    try {
         const res = await fetch(`https://api.github.com${path}`, {
             ...options,
+            signal: controller.signal,
             headers: {
                 Authorization: `token ${this.token}`,
                 Accept: 'application/vnd.github.v3+json',
@@ -1214,8 +1222,17 @@ loadEditsFromCache() {
             },
             body: options.body ? JSON.stringify(options.body) : undefined
         });
+
+        clearTimeout(timeoutId);
         return res;
+    } catch (e) {
+        clearTimeout(timeoutId);
+        if (e.name === 'AbortError') {
+            throw new Error('Request timeout - GitHub API took too long');
+        }
+        throw e;
     }
+}
 
     async loadRepository() {
         this.token  = this.elements.patToken.value.trim();
@@ -1985,65 +2002,122 @@ readFileAsText(file) {
         document.body.appendChild(a); a.click(); document.body.removeChild(a);
     }
 
-    async batchCommit() {
-        const paths = Object.keys(this.pendingUploads);
-        if (!paths.length) { this.showStatus('No pending changes', 'error'); return; }
-        const message = this.elements.batchCommitMessage.value.trim() || 'Update files';
-        if (!confirm(`Push ${paths.length} file(s)?\n"${message}"`)) return;
+async batchCommit() {
+    const paths = Object.keys(this.pendingUploads);
+    if (!paths.length) { this.showStatus('No pending changes', 'error'); return; }
+    
+    const message = this.elements.batchCommitMessage.value.trim() || 'Update files';
+    if (!confirm(`Push ${paths.length} file(s)?\n"${message}"`)) return;
 
-        let saved = 0, failed = 0;
-        for (const [path, content] of Object.entries(this.pendingUploads)) {
-            this.showStatus(`Pushing ${saved+1}/${paths.length}: ${path}`, 'info');
-            try {
-                const body = { message, content: this.encodeBase64(content), branch: this.branch };
-                if (this.fileSHAs[path]) body.sha = this.fileSHAs[path];
-                const r = await this.api(`/repos/${this.owner}/${this.repo}/contents/${encodeURIComponent(path)}`, { method: 'PUT', body });
-                if (r.ok) { const d = await r.json(); this.fileSHAs[path] = d.content.sha; delete this.pendingUploads[path]; saved++; }
-                else failed++;
-            } catch { failed++; }
+    // Filter out files that are too large
+    const validFiles = [];
+    const skippedFiles = [];
+    
+    for (const path of paths) {
+        const content = this.pendingUploads[path];
+        const sizeInMB = new Blob([content]).size / (1024 * 1024);
+        
+        // Skip files larger than 5MB (GitHub gets slow with these)
+        if (sizeInMB > 5) {
+            skippedFiles.push({ path, size: sizeInMB.toFixed(2) });
+        } else {
+            validFiles.push(path);
         }
+    }
 
-        Object.keys(this.pendingUploads).length === 0 ? this.clearRepoCache() : this.saveEditsToCache();
-        this.updatePendingList();
-        this.showStatus(
-            failed === 0 ? `✅ Pushed ${saved} file(s)! Cache cleared.` : `Pushed ${saved}, failed ${failed}.`,
-            failed === 0 ? 'success' : 'error'
-        );
+    if (skippedFiles.length > 0) {
+        const skipMsg = skippedFiles.map(f => `${f.path} (${f.size}MB)`).join('\n');
+        alert(`⚠️ These files are too large to push via GitHub API:\n\n${skipMsg}\n\nYou can push them separately or use Git CLI.`);
+    }
+
+    if (validFiles.length === 0) {
+        this.showStatus('No files small enough to push', 'error');
+        return;
+    }
+
+    // Push in smaller batches with delays
+    let saved = 0;
+    let failed = 0;
+    const batchSize = 5; // Push 5 files at a time
+    const delayMs = 1000; // 1 second between batches
+
+    for (let i = 0; i < validFiles.length; i += batchSize) {
+        const batch = validFiles.slice(i, i + batchSize);
+        
+        this.showStatus(`Pushing batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(validFiles.length / batchSize)}...`, 'info');
+
+        // Push files in parallel within batch
+        const batchPromises = batch.map(path => this.pushSingleFile(path, message));
+        const results = await Promise.allSettled(batchPromises);
+
+        // Count successes/failures
+        results.forEach((result, idx) => {
+            if (result.status === 'fulfilled') {
+                saved++;
+                delete this.pendingUploads[batch[idx]];
+            } else {
+                failed++;
+                console.error(`Failed to push ${batch[idx]}:`, result.reason);
+            }
+        });
+
+        // Wait before next batch (avoid rate limiting)
+        if (i + batchSize < validFiles.length) {
+            await new Promise(resolve => setTimeout(resolve, delayMs));
+        }
+    }
+
+    // Cleanup
+    this.saveEditsToCache();
+    this.updatePendingList();
+    this.updateCacheIndicator();
+
+    const successMsg = saved > 0 
+        ? `✅ Pushed ${saved}/${validFiles.length} files!`
+        : 'No files pushed';
+    
+    const failMsg = failed > 0 
+        ? ` (${failed} failed)` 
+        : '';
+
+    this.showStatus(successMsg + failMsg, failed === 0 && saved > 0 ? 'success' : 'error');
+
+    if (saved > 0) {
         await this.fetchRepositoryTree();
         this.populateWorkflowDropdown();
         this.populateDeployDropdown();
     }
+}
 
-    populateWorkflowDropdown() { this._fillYmlDropdown(this.elements.workflowFileSelect, this.elements.workflowRef); }
-    populateDeployDropdown()   { this._fillYmlDropdown(this.elements.deployWorkflowSelect, this.elements.deployRef); }
-
-    _fillYmlDropdown(select, refInput) {
-        select.innerHTML = '';
-        if (!this.ymlFiles.length) {
-            select.innerHTML = '<option value="">No .yml files found</option>'; return;
-        }
-        const wf = this.ymlFiles.filter(f => f.isWorkflow).sort((a,b) => a.path.localeCompare(b.path));
-        const ot = this.ymlFiles.filter(f => !f.isWorkflow).sort((a,b) => a.path.localeCompare(b.path));
-
-        const def = document.createElement('option');
-        def.value = ''; def.textContent = `── Select YAML file (${this.ymlFiles.length}) ──`;
-        select.appendChild(def);
-
-        if (wf.length) {
-            const g = document.createElement('optgroup');
-            g.label = `⚙️  Workflows (${wf.length})`;
-            wf.forEach(f => { const o = document.createElement('option'); o.value = f.path; o.textContent = `${f.path}  @${this.branch}`; g.appendChild(o); });
-            select.appendChild(g);
-        }
-        if (ot.length) {
-            const g = document.createElement('optgroup');
-            g.label = `📄  Other YAML (${ot.length})`;
-            ot.forEach(f => { const o = document.createElement('option'); o.value = f.path; o.textContent = `${f.path}  @${this.branch}`; g.appendChild(o); });
-            select.appendChild(g);
-        }
-        if (refInput) refInput.value = this.branch;
+// New helper method
+async pushSingleFile(path, message) {
+    const content = this.pendingUploads[path];
+    const body = { 
+        message, 
+        content: this.encodeBase64(content), 
+        branch: this.branch 
+    };
+    
+    if (this.fileSHAs[path]) {
+        body.sha = this.fileSHAs[path];
     }
 
+    const res = await this.api(
+        `/repos/${this.owner}/${this.repo}/contents/${encodeURIComponent(path)}`,
+        { method: 'PUT', body, timeout: 30000 } // 30 second timeout
+    );
+
+    if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || res.statusText);
+    }
+
+    const data = await res.json();
+    this.fileSHAs[path] = data.content.sha;
+    this.fileContents[path] = content;
+    
+    return data;
+}
     parseWorkflowFile(content) {
         const info = { name: 'Unknown', triggers: [], inputs: [] };
         const nm = content.match(/^name:\s*['"]?(.+?)['"]?\s*$/m); if (nm) info.name = nm[1].trim();
