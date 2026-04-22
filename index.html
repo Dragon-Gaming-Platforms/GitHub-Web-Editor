@@ -241,7 +241,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
     padding: 8px;
     border-radius: 4px;
     margin-bottom: 8px;
-    max-height: 250px;
+    max-height: 400px;  /* Increased from 250px */
     overflow-y: auto;
 }
 
@@ -293,24 +293,24 @@ button:disabled{opacity:.5;cursor:not-allowed}
         </header>
 
         <div class="main-wrapper">
-<nav class="nav-sidebar">
-    <button class="nav-btn active" data-tab="code"><span class="nav-icon">📝</span><span class="nav-label">Code</span></button>
-    <button class="nav-btn" data-tab="files"><span class="nav-icon">📁</span><span class="nav-label">Files</span></button>
-    <button class="nav-btn" data-tab="pages"><span class="nav-icon">🌐</span><span class="nav-label">Pages</span></button>
-    <button class="nav-btn" data-tab="actions"><span class="nav-icon">▶️</span><span class="nav-label">Actions</span></button>
-    <button class="nav-btn" data-tab="prs"><span class="nav-icon">🔀</span><span class="nav-label">PRs</span></button>
-    <button class="nav-btn" data-tab="issues"><span class="nav-icon">🐛</span><span class="nav-label">Issues</span></button>
-    <button class="nav-btn" data-tab="releases"><span class="nav-icon">🏷️</span><span class="nav-label">Releases</span></button>
-    <button class="nav-btn" data-tab="insights"><span class="nav-icon">📊</span><span class="nav-label">Insights</span></button>
-    <button class="nav-btn" data-tab="secrets"><span class="nav-icon">🔐</span><span class="nav-label">Secrets</span></button>
-    <button class="nav-btn" data-tab="notifications"><span class="nav-icon">🔔</span><span class="nav-label">Alerts</span></button>
-    <button class="nav-btn" data-tab="collaborators"><span class="nav-icon">👥</span><span class="nav-label">Team</span></button>
-    <button class="nav-btn" data-tab="keys"><span class="nav-icon">🔑</span><span class="nav-label">Keys</span></button>
-    <button class="nav-btn" data-tab="manage"><span class="nav-icon">🗂️</span><span class="nav-label">Manage</span></button>
-    <button class="nav-btn" data-tab="codespaces"><span class="nav-icon">💻</span><span class="nav-label">Spaces</span></button>
-    <button class="nav-btn" data-tab="logs"><span class="nav-icon">📋</span><span class="nav-label">Logs</span></button>
-    <button class="nav-btn" data-tab="settings"><span class="nav-icon">⚙️</span><span class="nav-label">Settings</span></button>
-</nav>
+            <nav class="nav-sidebar">
+                <button class="nav-btn active" data-tab="code"><span class="nav-icon">📝</span><span class="nav-label">Code</span></button>
+                <button class="nav-btn" data-tab="files"><span class="nav-icon">📁</span><span class="nav-label">Files</span></button>
+                <button class="nav-btn" data-tab="pages"><span class="nav-icon">🌐</span><span class="nav-label">Pages</span></button>
+                <button class="nav-btn" data-tab="actions"><span class="nav-icon">▶️</span><span class="nav-label">Actions</span></button>
+                <button class="nav-btn" data-tab="prs"><span class="nav-icon">🔀</span><span class="nav-label">PRs</span></button>
+                <button class="nav-btn" data-tab="issues"><span class="nav-icon">🐛</span><span class="nav-label">Issues</span></button>
+                <button class="nav-btn" data-tab="releases"><span class="nav-icon">🏷️</span><span class="nav-label">Releases</span></button>
+                <button class="nav-btn" data-tab="insights"><span class="nav-icon">📊</span><span class="nav-label">Insights</span></button>
+                <button class="nav-btn" data-tab="secrets"><span class="nav-icon">🔐</span><span class="nav-label">Secrets</span></button>
+                <button class="nav-btn" data-tab="notifications"><span class="nav-icon">🔔</span><span class="nav-label">Alerts</span></button>
+                <button class="nav-btn" data-tab="collaborators"><span class="nav-icon">👥</span><span class="nav-label">Team</span></button>
+                <button class="nav-btn" data-tab="keys"><span class="nav-icon">🔑</span><span class="nav-label">Keys</span></button>
+                <button class="nav-btn" data-tab="manage"><span class="nav-icon">🗂️</span><span class="nav-label">Manage</span></button>
+                <button class="nav-btn" data-tab="codespaces"><span class="nav-icon">💻</span><span class="nav-label">Spaces</span></button>
+                <button class="nav-btn" data-tab="logs"><span class="nav-icon">📋</span><span class="nav-label">Logs</span></button>
+                <button class="nav-btn" data-tab="settings"><span class="nav-icon">⚙️</span><span class="nav-label">Settings</span></button>
+            </nav>
 
             <main class="main-content">
                 <!-- Code Tab -->
@@ -894,23 +894,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
                         </div>
                     </div>
                 </div>
-<div class="tab-content" id="tab-logs">
-    <div class="tab-header">
-        <h2>GitHub Actions Logs</h2>
-        <div class="header-actions">
-            <select id="log-filter">
-                <option value="all">All Logs</option>
-                <option value="errors">With Errors</option>
-                <option value="failures">Failed Runs</option>
-                <option value="success">Successful Runs</option>
-            </select>
-            <button id="refresh-logs" class="icon-btn">🔄 Refresh</button>
-        </div>
-    </div>
-    <div class="tab-body">
-        <div id="error-logs-list"><p class="muted">Click Refresh to load logs</p></div>
-    </div>
-</div>
+
                 <!-- Settings Tab -->
                 <div class="tab-content" id="tab-settings">
                     <div class="tab-header"><h2>Settings</h2></div>
@@ -2628,97 +2612,34 @@ async loadErrorLogs() {
 
 async fetchRunLogs(run) {
     try {
-        // Get the jobs for this run
-        const jobsRes = await this.api(`/repos/${this.owner}/${this.repo}/actions/runs/${run.id}/jobs`);
-        if (!jobsRes.ok) {
+        // Try to get logs zip file
+        const logsUrl = `/repos/${this.owner}/${this.repo}/actions/runs/${run.id}/logs`;
+        const res = await this.api(logsUrl);
+        
+        if (!res.ok) {
+            // If zip fails, try to get it from GitHub's artifact API
+            console.warn(`Could not fetch logs zip for run ${run.id}, status: ${res.status}`);
             return { 
                 run, 
-                logs: `Could not load job details` 
+                logs: `Run Status: ${run.conclusion || run.status}\nCreated: ${run.created_at}\n\n[Logs not available through API - view on GitHub for details]` 
             };
         }
 
-        const jobsData = await jobsRes.json();
-        const jobs = jobsData.jobs || [];
-
-        if (jobs.length === 0) {
-            return { 
-                run, 
-                logs: `No jobs found for this run` 
-            };
-        }
-
-        // Get logs from first job's steps
-        let logs = `=== ${run.name} ===\n`;
-        logs += `Status: ${run.conclusion || run.status}\n`;
-        logs += `Created: ${new Date(run.created_at).toLocaleString()}\n\n`;
-
-        for (const job of jobs) {
-            logs += `--- Job: ${job.name} ---\n`;
-            logs += `Status: ${job.conclusion || job.status}\n`;
-            
-            if (job.steps) {
-                job.steps.forEach(step => {
-                    const stepStatus = step.conclusion || 'pending';
-                    const icon = step.conclusion === 'failure' ? '❌' : step.conclusion === 'success' ? '✅' : '⏳';
-                    logs += `  ${icon} ${step.name}: ${stepStatus}\n`;
-                    
-                    if (step.conclusion === 'failure' && step.number) {
-                        logs += `     Output: ${step.output || 'No output'}\n`;
-                    }
-                });
-            }
-            logs += '\n';
-        }
-
-        logs += `\nView full logs: ${run.html_url}\n`;
-
-        return { run, logs };
+        // Logs come as a zip file, we need to extract text
+        const blob = await res.blob();
+        const text = await blob.text();
+        
+        return { run, logs: text };
     } catch (e) {
         console.error(`Error fetching logs for run ${run.id}:`, e);
         return { 
             run, 
-            logs: `Error loading logs: ${e.message}\n\nView on GitHub: ${run.html_url}` 
+            logs: `[Could not load logs: ${e.message}]` 
         };
     }
 }
 
-displayErrorLogs(logsData) {
-    if (!logsData || logsData.length === 0) {
-        this.elements.errorLogsList.innerHTML = '<p class="muted">No logs available</p>';
-        return;
-    }
 
-    let html = '';
-    
-    logsData.forEach(({ run, logs }) => {
-        const hasErrors = logs.toLowerCase().includes('error') || logs.toLowerCase().includes('failed');
-        const statusColor = run.conclusion === 'failure' ? '#f85149' : run.conclusion === 'success' ? '#3fb950' : '#f0883e';
-        const statusIcon = run.conclusion === 'failure' ? '❌' : run.conclusion === 'success' ? '✅' : '⏳';
-        
-        // Limit log preview to first 500 chars
-        const preview = logs.substring(0, 500);
-        const truncated = logs.length > 500;
-
-        html += `
-            <div class="error-log-item" style="border-left: 4px solid ${statusColor};">
-                <div class="log-header">
-                    <div>
-                        <strong style="color: ${statusColor};">${statusIcon} ${run.name || 'Unknown Workflow'}</strong>
-                        <div class="log-meta">Run #${run.id} • ${run.conclusion || run.status}</div>
-                    </div>
-                </div>
-                <div class="log-date">${new Date(run.created_at).toLocaleString()}</div>
-                ${hasErrors ? '<div class="log-error-indicator">⚠️ Contains errors/failures</div>' : ''}
-                <div class="log-content">
-                    <pre>${preview}${truncated ? '\n\n... [log truncated]' : ''}</pre>
-                </div>
-                <a href="${run.html_url}" target="_blank" class="log-link">View full run on GitHub →</a>
-            </div>
-        `;
-    });
-
-    this.elements.errorLogsList.innerHTML = html;
-}
 
 filterErrorLogs() {
     if (!this.elements.logFilter) return;
@@ -2743,31 +2664,43 @@ filterErrorLogs() {
     });
 }
 
-    displayErrorLogs(logsData) {
-        let html = '';
-        
-        logsData.forEach(({ run, logs }) => {
-            const hasErrors = logs.toLowerCase().includes('error');
-            const statusColor = run.conclusion === 'failure' ? '#f85149' : run.conclusion === 'success' ? '#3fb950' : '#f0883e';
-            
-            html += `
-                <div class="error-log-item" style="border-left: 3px solid ${statusColor};">
-                    <div class="log-header">
-                        <strong style="color: ${statusColor};">${run.name}</strong>
-                        <span class="log-meta">#${run.id} • ${run.conclusion || run.status}</span>
-                    </div>
-                    <div class="log-date">${new Date(run.created_at).toLocaleString()}</div>
-                    ${hasErrors ? '<div class="log-error-indicator">⚠️ Contains errors</div>' : ''}
-                    <div class="log-content">
-                        <pre>${logs.substring(0, 1000)}${logs.length > 1000 ? '\n\n... [truncated, view on GitHub for full logs]' : ''}</pre>
-                    </div>
-                    <a href="${run.html_url}" target="_blank" class="log-link">View full run →</a>
-                </div>
-            `;
-        });
-
-        this.elements.errorLogsList.innerHTML = html;
+displayErrorLogs(logsData) {
+    if (!logsData || logsData.length === 0) {
+        this.elements.errorLogsList.innerHTML = '<p class="muted">No logs available</p>';
+        return;
     }
+
+    let html = '';
+    
+    logsData.forEach(({ run, logs }) => {
+        const hasErrors = logs.toLowerCase().includes('error') || logs.toLowerCase().includes('failed') || logs.toLowerCase().includes('❌');
+        const statusColor = run.conclusion === 'failure' ? '#f85149' : run.conclusion === 'success' ? '#3fb950' : '#f0883e';
+        const statusIcon = run.conclusion === 'failure' ? '❌' : run.conclusion === 'success' ? '✅' : '⏳';
+        
+        // Increase limit to 2000 characters (or remove limit entirely)
+        const preview = logs.substring(0, 2000);
+        const truncated = logs.length > 2000;
+
+        html += `
+            <div class="error-log-item" style="border-left: 4px solid ${statusColor};">
+                <div class="log-header">
+                    <div>
+                        <strong style="color: ${statusColor};">${statusIcon} ${run.name || 'Unknown Workflow'}</strong>
+                        <div class="log-meta">Run #${run.id} • ${run.conclusion || run.status}</div>
+                    </div>
+                </div>
+                <div class="log-date">${new Date(run.created_at).toLocaleString()}</div>
+                ${hasErrors ? '<div class="log-error-indicator">⚠️ Contains errors/failures</div>' : ''}
+                <div class="log-content">
+                    <pre>${preview}${truncated ? '\n\n... [log truncated - view on GitHub for full logs]' : ''}</pre>
+                </div>
+                <a href="${run.html_url}" target="_blank" class="log-link">View full run on GitHub →</a>
+            </div>
+        `;
+    });
+
+    this.elements.errorLogsList.innerHTML = html;
+}
 
     filterErrorLogs() {
         const filter = this.elements.logFilter.value;
