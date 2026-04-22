@@ -293,24 +293,24 @@ button:disabled{opacity:.5;cursor:not-allowed}
         </header>
 
         <div class="main-wrapper">
-            <nav class="nav-sidebar">
-                <button class="nav-btn active" data-tab="code"><span class="nav-icon">📝</span><span class="nav-label">Code</span></button>
-                <button class="nav-btn" data-tab="files"><span class="nav-icon">📁</span><span class="nav-label">Files</span></button>
-                <button class="nav-btn" data-tab="pages"><span class="nav-icon">🌐</span><span class="nav-label">Pages</span></button>
-                <button class="nav-btn" data-tab="actions"><span class="nav-icon">▶️</span><span class="nav-label">Actions</span></button>
-                <button class="nav-btn" data-tab="prs"><span class="nav-icon">🔀</span><span class="nav-label">PRs</span></button>
-                <button class="nav-btn" data-tab="issues"><span class="nav-icon">🐛</span><span class="nav-label">Issues</span></button>
-                <button class="nav-btn" data-tab="releases"><span class="nav-icon">🏷️</span><span class="nav-label">Releases</span></button>
-                <button class="nav-btn" data-tab="insights"><span class="nav-icon">📊</span><span class="nav-label">Insights</span></button>
-                <button class="nav-btn" data-tab="secrets"><span class="nav-icon">🔐</span><span class="nav-label">Secrets</span></button>
-                <button class="nav-btn" data-tab="notifications"><span class="nav-icon">🔔</span><span class="nav-label">Alerts</span></button>
-                <button class="nav-btn" data-tab="collaborators"><span class="nav-icon">👥</span><span class="nav-label">Team</span></button>
-                <button class="nav-btn" data-tab="keys"><span class="nav-icon">🔑</span><span class="nav-label">Keys</span></button>
-                <button class="nav-btn" data-tab="manage"><span class="nav-icon">🗂️</span><span class="nav-label">Manage</span></button>
-                <button class="nav-btn" data-tab="codespaces"><span class="nav-icon">💻</span><span class="nav-label">Spaces</span></button>
-                <button class="nav-btn" data-tab="logs"><span class="nav-icon">📋</span><span class="nav-label">Logs</span></button>
-                <button class="nav-btn" data-tab="settings"><span class="nav-icon">⚙️</span><span class="nav-label">Settings</span></button>
-            </nav>
+<nav class="nav-sidebar">
+    <button class="nav-btn active" data-tab="code"><span class="nav-icon">📝</span><span class="nav-label">Code</span></button>
+    <button class="nav-btn" data-tab="files"><span class="nav-icon">📁</span><span class="nav-label">Files</span></button>
+    <button class="nav-btn" data-tab="pages"><span class="nav-icon">🌐</span><span class="nav-label">Pages</span></button>
+    <button class="nav-btn" data-tab="actions"><span class="nav-icon">▶️</span><span class="nav-label">Actions</span></button>
+    <button class="nav-btn" data-tab="prs"><span class="nav-icon">🔀</span><span class="nav-label">PRs</span></button>
+    <button class="nav-btn" data-tab="issues"><span class="nav-icon">🐛</span><span class="nav-label">Issues</span></button>
+    <button class="nav-btn" data-tab="releases"><span class="nav-icon">🏷️</span><span class="nav-label">Releases</span></button>
+    <button class="nav-btn" data-tab="insights"><span class="nav-icon">📊</span><span class="nav-label">Insights</span></button>
+    <button class="nav-btn" data-tab="secrets"><span class="nav-icon">🔐</span><span class="nav-label">Secrets</span></button>
+    <button class="nav-btn" data-tab="notifications"><span class="nav-icon">🔔</span><span class="nav-label">Alerts</span></button>
+    <button class="nav-btn" data-tab="collaborators"><span class="nav-icon">👥</span><span class="nav-label">Team</span></button>
+    <button class="nav-btn" data-tab="keys"><span class="nav-icon">🔑</span><span class="nav-label">Keys</span></button>
+    <button class="nav-btn" data-tab="manage"><span class="nav-icon">🗂️</span><span class="nav-label">Manage</span></button>
+    <button class="nav-btn" data-tab="codespaces"><span class="nav-icon">💻</span><span class="nav-label">Spaces</span></button>
+    <button class="nav-btn" data-tab="logs"><span class="nav-icon">📋</span><span class="nav-label">Logs</span></button>
+    <button class="nav-btn" data-tab="settings"><span class="nav-icon">⚙️</span><span class="nav-label">Settings</span></button>
+</nav>
 
             <main class="main-content">
                 <!-- Code Tab -->
@@ -894,7 +894,23 @@ button:disabled{opacity:.5;cursor:not-allowed}
                         </div>
                     </div>
                 </div>
-
+<div class="tab-content" id="tab-logs">
+    <div class="tab-header">
+        <h2>GitHub Actions Logs</h2>
+        <div class="header-actions">
+            <select id="log-filter">
+                <option value="all">All Logs</option>
+                <option value="errors">With Errors</option>
+                <option value="failures">Failed Runs</option>
+                <option value="success">Successful Runs</option>
+            </select>
+            <button id="refresh-logs" class="icon-btn">🔄 Refresh</button>
+        </div>
+    </div>
+    <div class="tab-body">
+        <div id="error-logs-list"><p class="muted">Click Refresh to load logs</p></div>
+    </div>
+</div>
                 <!-- Settings Tab -->
                 <div class="tab-content" id="tab-settings">
                     <div class="tab-header"><h2>Settings</h2></div>
