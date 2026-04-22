@@ -2628,45 +2628,56 @@ async loadErrorLogs() {
 
 async fetchRunLogs(run) {
     try {
-        // Instead of trying to get the zip, let's get the run details
-        const res = await this.api(`/repos/${this.owner}/${this.repo}/actions/runs/${run.id}`);
-        
-        if (!res.ok) {
+        // Get the jobs for this run
+        const jobsRes = await this.api(`/repos/${this.owner}/${this.repo}/actions/runs/${run.id}/jobs`);
+        if (!jobsRes.ok) {
             return { 
                 run, 
-                logs: `Could not load run details (${res.status})` 
+                logs: `Could not load job details` 
             };
         }
 
-        const runDetails = await res.json();
-        
-        // Get the jobs for this run
-        const jobsRes = await this.api(`/repos/${this.owner}/${this.repo}/actions/runs/${run.id}/jobs`);
-        const jobs = jobsRes.ok ? (await jobsRes.json()).jobs || [] : [];
+        const jobsData = await jobsRes.json();
+        const jobs = jobsData.jobs || [];
 
-        // Build a summary of the run
-        let summary = `Run: ${run.name}\n`;
-        summary += `Status: ${run.conclusion || run.status}\n`;
-        summary += `Created: ${new Date(run.created_at).toLocaleString()}\n`;
-        summary += `Branch: ${run.head_branch}\n`;
-        summary += `Commit: ${run.head_sha?.substring(0, 7) || 'unknown'}\n`;
-        summary += `\n--- Jobs ---\n`;
+        if (jobs.length === 0) {
+            return { 
+                run, 
+                logs: `No jobs found for this run` 
+            };
+        }
 
-        jobs.forEach(job => {
-            const status = job.conclusion || job.status;
-            const icon = job.conclusion === 'failure' ? '❌' : job.conclusion === 'success' ? '✅' : '⏳';
-            summary += `${icon} ${job.name}: ${status}\n`;
-        });
+        // Get logs from first job's steps
+        let logs = `=== ${run.name} ===\n`;
+        logs += `Status: ${run.conclusion || run.status}\n`;
+        logs += `Created: ${new Date(run.created_at).toLocaleString()}\n\n`;
 
-        summary += `\n--- View Full Logs ---\n`;
-        summary += `${run.html_url}\n`;
+        for (const job of jobs) {
+            logs += `--- Job: ${job.name} ---\n`;
+            logs += `Status: ${job.conclusion || job.status}\n`;
+            
+            if (job.steps) {
+                job.steps.forEach(step => {
+                    const stepStatus = step.conclusion || 'pending';
+                    const icon = step.conclusion === 'failure' ? '❌' : step.conclusion === 'success' ? '✅' : '⏳';
+                    logs += `  ${icon} ${step.name}: ${stepStatus}\n`;
+                    
+                    if (step.conclusion === 'failure' && step.number) {
+                        logs += `     Output: ${step.output || 'No output'}\n`;
+                    }
+                });
+            }
+            logs += '\n';
+        }
 
-        return { run, logs: summary };
+        logs += `\nView full logs: ${run.html_url}\n`;
+
+        return { run, logs };
     } catch (e) {
         console.error(`Error fetching logs for run ${run.id}:`, e);
         return { 
             run, 
-            logs: `Error: ${e.message}\n\nView on GitHub: ${run.html_url}` 
+            logs: `Error loading logs: ${e.message}\n\nView on GitHub: ${run.html_url}` 
         };
     }
 }
