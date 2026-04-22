@@ -198,15 +198,73 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .status.info{background:#1f6feb;color:#fff;display:block}
 .codespace-btn-small{padding:4px 10px;font-size:11px}
 @media(max-width:768px){.nav-sidebar{width:52px}.nav-label{display:none}.nav-btn{width:42px;padding:8px}.code-layout{flex-direction:column}.file-sidebar{width:100%;height:160px;border-right:none;border-bottom:1px solid #30363d}.manage-grid,.insights-grid{grid-template-columns:1fr}}
-.error-log-item{padding:12px;background:#0d1117;border:1px solid #30363d;border-radius:6px;margin-bottom:8px}
-.log-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
-.log-meta{font-size:11px;color:#8b949e}
-.log-date{font-size:11px;color:#6e7681;margin-bottom:6px}
-.log-error-indicator{font-size:11px;color:#f0883e;background:#1f1700;padding:3px 6px;border-radius:4px;margin-bottom:6px;display:inline-block}
-.log-content{background:#161b22;padding:8px;border-radius:4px;margin-bottom:8px;max-height:200px;overflow-y:auto}
-.log-content pre{font-family:monospace;font-size:11px;color:#c9d1d9;margin:0;white-space:pre-wrap;word-wrap:break-word}
-.log-link{display:inline-block;color:#58a6ff;font-size:11px;text-decoration:none}
-.log-link:hover{text-decoration:underline}
+.error-log-item {
+    padding: 12px;
+    background: #0d1117;
+    border: 1px solid #30363d;
+    border-left: 4px solid #58a6ff;
+    border-radius: 6px;
+    margin-bottom: 8px;
+}
+
+.log-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 8px;
+}
+
+.log-meta {
+    font-size: 11px;
+    color: #8b949e;
+    margin-top: 4px;
+}
+
+.log-date {
+    font-size: 11px;
+    color: #6e7681;
+    margin-bottom: 8px;
+}
+
+.log-error-indicator {
+    font-size: 11px;
+    color: #f0883e;
+    background: #1f1700;
+    padding: 4px 8px;
+    border-radius: 4px;
+    margin-bottom: 8px;
+    display: inline-block;
+}
+
+.log-content {
+    background: #161b22;
+    padding: 8px;
+    border-radius: 4px;
+    margin-bottom: 8px;
+    max-height: 250px;
+    overflow-y: auto;
+}
+
+.log-content pre {
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    color: #c9d1d9;
+    margin: 0;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+.log-link {
+    display: inline-block;
+    color: #58a6ff;
+    font-size: 11px;
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.log-link:hover {
+    text-decoration: underline;
+}
     </style>
 </head>
 <body>
