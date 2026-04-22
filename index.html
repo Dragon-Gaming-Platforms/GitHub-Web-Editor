@@ -198,6 +198,15 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .status.info{background:#1f6feb;color:#fff;display:block}
 .codespace-btn-small{padding:4px 10px;font-size:11px}
 @media(max-width:768px){.nav-sidebar{width:52px}.nav-label{display:none}.nav-btn{width:42px;padding:8px}.code-layout{flex-direction:column}.file-sidebar{width:100%;height:160px;border-right:none;border-bottom:1px solid #30363d}.manage-grid,.insights-grid{grid-template-columns:1fr}}
+.error-log-item{padding:12px;background:#0d1117;border:1px solid #30363d;border-radius:6px;margin-bottom:8px}
+.log-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.log-meta{font-size:11px;color:#8b949e}
+.log-date{font-size:11px;color:#6e7681;margin-bottom:6px}
+.log-error-indicator{font-size:11px;color:#f0883e;background:#1f1700;padding:3px 6px;border-radius:4px;margin-bottom:6px;display:inline-block}
+.log-content{background:#161b22;padding:8px;border-radius:4px;margin-bottom:8px;max-height:200px;overflow-y:auto}
+.log-content pre{font-family:monospace;font-size:11px;color:#c9d1d9;margin:0;white-space:pre-wrap;word-wrap:break-word}
+.log-link{display:inline-block;color:#58a6ff;font-size:11px;text-decoration:none}
+.log-link:hover{text-decoration:underline}
     </style>
 </head>
 <body>
@@ -241,6 +250,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
                 <button class="nav-btn" data-tab="keys"><span class="nav-icon">🔑</span><span class="nav-label">Keys</span></button>
                 <button class="nav-btn" data-tab="manage"><span class="nav-icon">🗂️</span><span class="nav-label">Manage</span></button>
                 <button class="nav-btn" data-tab="codespaces"><span class="nav-icon">💻</span><span class="nav-label">Spaces</span></button>
+                <button class="nav-btn" data-tab="logs"><span class="nav-icon">📋</span><span class="nav-label">Logs</span></button>
                 <button class="nav-btn" data-tab="settings"><span class="nav-icon">⚙️</span><span class="nav-label">Settings</span></button>
             </nav>
 
@@ -953,7 +963,7 @@ class GitHubEditor {
         this.repo = '';
         this.branch = 'main';
         this.currentFile = null;
-        this.isEditing = false; // Track if user is editing
+        this.isEditing = false;
         this.files = {};
         this.fileTree = [];
         this.fileContents = {};
@@ -988,7 +998,6 @@ class GitHubEditor {
             const jsonStr = JSON.stringify(data);
             const sizeInMB = new Blob([jsonStr]).size / (1024 * 1024);
             
-            // Skip localStorage if too large
             if (sizeInMB > 4) {
                 console.warn(`Cache too large (${sizeInMB.toFixed(2)}MB) - skipping localStorage save`);
                 this.updateCacheIndicator();
@@ -1091,6 +1100,10 @@ class GitHubEditor {
             pushBothWorkflows: $('push-both-workflows'),
             codespacesList: $('codespaces-list'),
 
+            refreshLogs: $('refresh-logs'),
+            errorLogsList: $('error-logs-list'),
+            logFilter: $('log-filter'),
+
             fontSize: $('font-size'), tabSize: $('tab-size'), wordWrap: $('word-wrap'),
             status: $('status')
         };
@@ -1144,6 +1157,11 @@ class GitHubEditor {
         this.elements.pushStartWorkflow.addEventListener('click', () => this.pushCodespaceWorkflow('start'));
         this.elements.pushStopWorkflow.addEventListener('click', () => this.pushCodespaceWorkflow('stop'));
         this.elements.pushBothWorkflows.addEventListener('click', () => this.pushCodespaceWorkflow('both'));
+
+        this.elements.refreshLogs.addEventListener('click', () => this.loadErrorLogs());
+        if (this.elements.logFilter) {
+            this.elements.logFilter.addEventListener('change', () => this.filterErrorLogs());
+        }
 
         this.elements.fontSize.addEventListener('change', () => this.updateEditorSettings());
         this.elements.tabSize.addEventListener('change', () => this.updateEditorSettings());
@@ -1691,7 +1709,6 @@ class GitHubEditor {
 
     async loadFile(path) {
         try {
-            // Mark that we're viewing (not editing)
             this.isEditing = false;
             this.currentFile = path;
 
@@ -1716,7 +1733,6 @@ class GitHubEditor {
                 this.elements.currentFile.textContent = path;
             }
 
-            // Set language
             if (monacoEditor) {
                 const ext = path.split('.').pop().toLowerCase();
                 const langMap = { js:'javascript', ts:'typescript', py:'python', html:'html', css:'css', json:'json', md:'markdown', yml:'yaml', yaml:'yaml', go:'go', rs:'rust', java:'java', php:'php', rb:'ruby' };
@@ -1731,7 +1747,6 @@ class GitHubEditor {
                 el.classList.toggle('active', el.dataset.path === path));
             this.showStatus('File loaded', 'success');
 
-            // NOW enable editing
             this.isEditing = true;
         } catch (e) { this.showStatus(`Error: ${e.message}`, 'error'); }
     }
@@ -1746,7 +1761,7 @@ class GitHubEditor {
         const name = prompt('File name (include path if needed):');
         if (!name) return;
         this.currentFile = name;
-        this.isEditing = true; // New files start in edit mode
+        this.isEditing = true;
         this.pendingUploads[name] = '';
         this.fileContents[name] = '';
         if (monacoEditor) monacoEditor.setValue('');
@@ -2484,6 +2499,90 @@ class GitHubEditor {
                         <span class="run-status ${run.conclusion||run.status}">${run.conclusion||run.status}</span>
                     </div>`).join('');
         } catch {}
+    }
+
+    async loadErrorLogs() {
+        if (!this.owner || !this.repo) { this.showStatus('Load a repository first', 'error'); return; }
+        this.showStatus('Loading action logs...', 'info');
+        try {
+            const r = await this.api(`/repos/${this.owner}/${this.repo}/actions/runs?per_page=30`);
+            if (!r.ok) throw new Error(r.statusText);
+            const runs = (await r.json()).workflow_runs || [];
+
+            if (runs.length === 0) {
+                this.elements.errorLogsList.innerHTML = '<p class="muted">No workflow runs found</p>';
+                this.showStatus('No workflow runs', 'info');
+                return;
+            }
+
+            // Fetch logs for all runs (in parallel for speed)
+            const logsPromises = runs.map(run => this.fetchRunLogs(run));
+            const allLogs = await Promise.all(logsPromises);
+
+            this.displayErrorLogs(allLogs);
+            this.showStatus(`Loaded logs from ${runs.length} workflow runs`, 'success');
+        } catch (e) { this.showStatus(`Error: ${e.message}`, 'error'); }
+    }
+
+    async fetchRunLogs(run) {
+        try {
+            const res = await this.api(`/repos/${this.owner}/${this.repo}/actions/runs/${run.id}/attempts/${run.run_attempt}/logs`);
+            if (!res.ok) return { run, logs: '' };
+
+            const blob = await res.blob();
+            const text = await blob.text();
+            
+            return { run, logs: text };
+        } catch (e) {
+            return { run, logs: `[Error loading logs: ${e.message}]` };
+        }
+    }
+
+    displayErrorLogs(logsData) {
+        let html = '';
+        
+        logsData.forEach(({ run, logs }) => {
+            const hasErrors = logs.toLowerCase().includes('error');
+            const statusColor = run.conclusion === 'failure' ? '#f85149' : run.conclusion === 'success' ? '#3fb950' : '#f0883e';
+            
+            html += `
+                <div class="error-log-item" style="border-left: 3px solid ${statusColor};">
+                    <div class="log-header">
+                        <strong style="color: ${statusColor};">${run.name}</strong>
+                        <span class="log-meta">#${run.id} • ${run.conclusion || run.status}</span>
+                    </div>
+                    <div class="log-date">${new Date(run.created_at).toLocaleString()}</div>
+                    ${hasErrors ? '<div class="log-error-indicator">⚠️ Contains errors</div>' : ''}
+                    <div class="log-content">
+                        <pre>${logs.substring(0, 1000)}${logs.length > 1000 ? '\n\n... [truncated, view on GitHub for full logs]' : ''}</pre>
+                    </div>
+                    <a href="${run.html_url}" target="_blank" class="log-link">View full run →</a>
+                </div>
+            `;
+        });
+
+        this.elements.errorLogsList.innerHTML = html;
+    }
+
+    filterErrorLogs() {
+        const filter = this.elements.logFilter.value;
+        const items = document.querySelectorAll('.error-log-item');
+        
+        items.forEach(item => {
+            let show = true;
+            
+            if (filter === 'errors') {
+                show = item.querySelector('.log-error-indicator') !== null;
+            } else if (filter === 'failures') {
+                const header = item.querySelector('.log-header strong');
+                show = header.parentElement.querySelector('.log-meta').textContent.includes('failure');
+            } else if (filter === 'success') {
+                const header = item.querySelector('.log-header strong');
+                show = header.parentElement.querySelector('.log-meta').textContent.includes('success');
+            }
+            
+            item.style.display = show ? 'block' : 'none';
+        });
     }
 
     showStatus(message, type = 'info') {
