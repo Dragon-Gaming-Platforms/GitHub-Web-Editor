@@ -2628,29 +2628,45 @@ async loadErrorLogs() {
 
 async fetchRunLogs(run) {
     try {
-        // Try to get logs zip file
-        const logsUrl = `/repos/${this.owner}/${this.repo}/actions/runs/${run.id}/logs`;
-        const res = await this.api(logsUrl);
+        // Instead of trying to get the zip, let's get the run details
+        const res = await this.api(`/repos/${this.owner}/${this.repo}/actions/runs/${run.id}`);
         
         if (!res.ok) {
-            // If zip fails, try to get it from GitHub's artifact API
-            console.warn(`Could not fetch logs zip for run ${run.id}, status: ${res.status}`);
             return { 
                 run, 
-                logs: `Run Status: ${run.conclusion || run.status}\nCreated: ${run.created_at}\n\n[Logs not available through API - view on GitHub for details]` 
+                logs: `Could not load run details (${res.status})` 
             };
         }
 
-        // Logs come as a zip file, we need to extract text
-        const blob = await res.blob();
-        const text = await blob.text();
+        const runDetails = await res.json();
         
-        return { run, logs: text };
+        // Get the jobs for this run
+        const jobsRes = await this.api(`/repos/${this.owner}/${this.repo}/actions/runs/${run.id}/jobs`);
+        const jobs = jobsRes.ok ? (await jobsRes.json()).jobs || [] : [];
+
+        // Build a summary of the run
+        let summary = `Run: ${run.name}\n`;
+        summary += `Status: ${run.conclusion || run.status}\n`;
+        summary += `Created: ${new Date(run.created_at).toLocaleString()}\n`;
+        summary += `Branch: ${run.head_branch}\n`;
+        summary += `Commit: ${run.head_sha?.substring(0, 7) || 'unknown'}\n`;
+        summary += `\n--- Jobs ---\n`;
+
+        jobs.forEach(job => {
+            const status = job.conclusion || job.status;
+            const icon = job.conclusion === 'failure' ? '❌' : job.conclusion === 'success' ? '✅' : '⏳';
+            summary += `${icon} ${job.name}: ${status}\n`;
+        });
+
+        summary += `\n--- View Full Logs ---\n`;
+        summary += `${run.html_url}\n`;
+
+        return { run, logs: summary };
     } catch (e) {
         console.error(`Error fetching logs for run ${run.id}:`, e);
         return { 
             run, 
-            logs: `[Could not load logs: ${e.message}]` 
+            logs: `Error: ${e.message}\n\nView on GitHub: ${run.html_url}` 
         };
     }
 }
