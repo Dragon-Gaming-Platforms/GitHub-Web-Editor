@@ -1074,17 +1074,6 @@ class GitHubEditor {
             workflowDispatchWarning: $('workflow-dispatch-warning'), triggerWorkflow: $('trigger-workflow'),
             workflowRuns: $('workflow-runs'), actionsPageLink: $('actions-page-link'),
 
-            refresh-prs: $('refresh-prs'), pr-state-filter: $('pr-state-filter'), create-pr-btn: $('create-pr-btn'),
-            create-pr-form: $('create-pr-form'), pr-title: $('pr-title'), pr-head: $('pr-head'), pr-base: $('pr-base'), pr-body: $('pr-body'), pr-draft: $('pr-draft'), submit-pr-btn: $('submit-pr-btn'), cancel-pr-btn: $('cancel-pr-btn'),
-
-            refresh-issues: $('refresh-issues'), issue-state-filter: $('issue-state-filter'), create-issue-btn: $('create-issue-btn'),
-            create-issue-form: $('create-issue-form'), issue-title: $('issue-title'), issue-body: $('issue-body'), issue-labels: $('issue-labels'), submit-issue-btn: $('submit-issue-btn'), cancel-issue-btn: $('cancel-issue-btn'),
-
-            refresh-releases: $('refresh-releases'), create-release-btn: $('create-release-btn'),
-            create-release-form: $('create-release-form'), release-tag: $('release-tag'), release-branch: $('release-branch'), release-title: $('release-title'), release-body: $('release-body'), release-draft: $('release-draft'), release-prerelease: $('release-prerelease'), release-auto-notes: $('release-auto-notes'), submit-release-btn: $('submit-release-btn'), cancel-release-btn: $('cancel-release-btn'),
-
-            refresh-notifications: $('refresh-notifications'), notif-filter: $('notif-filter'), notifications-list: $('notifications-list'), mark-all-read-btn: $('mark-all-read-btn'),
-
             newRepoName: $('new-repo-name'), newRepoDesc: $('new-repo-desc'),
             newRepoVisibility: $('new-repo-visibility'), newRepoReadme: $('new-repo-readme'),
             newRepoCodespaceYml: $('new-repo-codespace-yml'), createRepoBtn: $('create-repo-btn'),
@@ -1141,24 +1130,6 @@ class GitHubEditor {
         this.elements.refreshActions.addEventListener('click', () => this.loadActionsInfo());
         this.elements.workflowFileSelect.addEventListener('change', () => this.onWorkflowFileSelect());
         this.elements.triggerWorkflow.addEventListener('click', () => this.triggerWorkflow());
-
-        this.elements.refresh-prs.addEventListener('click', () => this.loadPRs());
-        this.elements.create-pr-btn.addEventListener('click', () => this.showCreatePRForm());
-        this.elements.submit-pr-btn.addEventListener('click', () => this.createPR());
-        this.elements.cancel-pr-btn.addEventListener('click', () => this.hideCreatePRForm());
-
-        this.elements.refresh-issues.addEventListener('click', () => this.loadIssues());
-        this.elements.create-issue-btn.addEventListener('click', () => this.showCreateIssueForm());
-        this.elements.submit-issue-btn.addEventListener('click', () => this.createIssue());
-        this.elements.cancel-issue-btn.addEventListener('click', () => this.hideCreateIssueForm());
-
-        this.elements.refresh-releases.addEventListener('click', () => this.loadReleases());
-        this.elements.create-release-btn.addEventListener('click', () => this.showCreateReleaseForm());
-        this.elements.submit-release-btn.addEventListener('click', () => this.createRelease());
-        this.elements.cancel-release-btn.addEventListener('click', () => this.hideCreateReleaseForm());
-
-        this.elements.refresh-notifications.addEventListener('click', () => this.loadNotifications());
-        this.elements.mark-all-read-btn.addEventListener('click', () => this.markAllNotificationsRead());
 
         this.elements.createRepoBtn.addEventListener('click', () => this.createRepository());
         this.elements.renameRepoBtn.addEventListener('click', () => this.renameRepository());
@@ -1645,15 +1616,6 @@ class GitHubEditor {
             this.branches = await res.json();
 
             this.elements.pagesBranch.innerHTML = '<option value="">Select branch</option>' +
-                this.branches.map(b => `<option value="${b.name}">${b.name}</option>`).join('');
-
-            this.elements.pr-head.innerHTML = '<option value="">Select branch</option>' +
-                this.branches.map(b => `<option value="${b.name}">${b.name}</option>`).join('');
-
-            this.elements.pr-base.innerHTML = '<option value="">Select branch</option>' +
-                this.branches.map(b => `<option value="${b.name}">${b.name}</option>`).join('');
-
-            this.elements.release-branch.innerHTML = '<option value="">Select branch</option>' +
                 this.branches.map(b => `<option value="${b.name}">${b.name}</option>`).join('');
 
             this.elements.codespaceBranch.innerHTML =
@@ -2526,194 +2488,6 @@ class GitHubEditor {
                         <span class="run-status ${run.conclusion||run.status}">${run.conclusion||run.status}</span>
                     </div>`).join('');
         } catch {}
-    }
-
-    async loadPRs() {
-        if (!this.owner || !this.repo) { this.showStatus('Load a repository first', 'error'); return; }
-        const state = this.elements.pr-state-filter.value;
-        try {
-            const res = await this.api(`/repos/${this.owner}/${this.repo}/pulls?state=${state}&per_page=20`);
-            if (!res.ok) throw new Error(res.statusText);
-            const prs = await res.json();
-            this.elements.prs-list.innerHTML = prs.length ? prs.map(pr => `
-                <div class=\"pr-item\">
-                    <div class=\"pr-header\">
-                        <span class=\"pr-title\">${pr.title}</span>
-                        <span class=\"badge ${pr.state}\">${pr.state}</span>
-                    </div>
-                    <div class=\"pr-meta\">
-                        #${pr.number} opened by ${pr.user.login} • ${new Date(pr.created_at).toLocaleDateString()}
-                    </div>
-                    <div class=\"pr-actions\">
-                        <button class=\"small-btn\" onclick=\"window.open('${pr.html_url}', '_blank')\">View</button>
-                    </div>
-                </div>
-            `).join('') : '<p class=\"muted\">No pull requests found</p>';
-            this.showStatus(`Loaded ${prs.length} PRs`, 'success');
-        } catch (e) { this.showStatus(`Error: ${e.message}`, 'error'); }
-    }
-
-    showCreatePRForm() { this.elements.create-pr-form.style.display = 'block'; }
-    hideCreatePRForm() { this.elements.create-pr-form.style.display = 'none'; }
-
-    async createPR() {
-        const title = this.elements.pr-title.value.trim();
-        const head = this.elements.pr-head.value;
-        const base = this.elements.pr-base.value;
-        const body = this.elements.pr-body.value.trim();
-        const draft = this.elements.pr-draft.checked;
-        if (!title || !head || !base) { this.showStatus('Fill required fields', 'error'); return; }
-        try {
-            const res = await this.api(`/repos/${this.owner}/${this.repo}/pulls`, {
-                method: 'POST', body: { title, head, base, body, draft }
-            });
-            if (!res.ok) { const e = await res.json(); throw new Error(e.message); }
-            this.showStatus('Pull request created!', 'success');
-            this.hideCreatePRForm();
-            this.elements.pr-title.value = '';
-            this.elements.pr-body.value = '';
-            await this.loadPRs();
-        } catch (e) { this.showStatus(`Error: ${e.message}`, 'error'); }
-    }
-
-    async loadIssues() {
-        if (!this.owner || !this.repo) { this.showStatus('Load a repository first', 'error'); return; }
-        const state = this.elements.issue-state-filter.value;
-        try {
-            const res = await this.api(`/repos/${this.owner}/${this.repo}/issues?state=${state}&per_page=20`);
-            if (!res.ok) throw new Error(res.statusText);
-            const issues = await res.json();
-            this.elements.issues-list.innerHTML = issues.length ? issues.map(issue => `
-                <div class=\"issue-item\">
-                    <div class=\"issue-header\">
-                        <span class=\"issue-title\">${issue.title}</span>
-                        <span class=\"badge ${issue.state}\">${issue.state}</span>
-                    </div>
-                    <div class=\"issue-meta\">
-                        #${issue.number} opened by ${issue.user.login} • ${new Date(issue.created_at).toLocaleDateString()}
-                    </div>
-                    <div class=\"issue-actions\">
-                        <button class=\"small-btn\" onclick=\"window.open('${issue.html_url}', '_blank')\">View</button>
-                    </div>
-                </div>
-            `).join('') : '<p class=\"muted\">No issues found</p>';
-            this.showStatus(`Loaded ${issues.length} issues`, 'success');
-        } catch (e) { this.showStatus(`Error: ${e.message}`, 'error'); }
-    }
-
-    showCreateIssueForm() { this.elements.create-issue-form.style.display = 'block'; }
-    hideCreateIssueForm() { this.elements.create-issue-form.style.display = 'none'; }
-
-    async createIssue() {
-        const title = this.elements.issue-title.value.trim();
-        const body = this.elements.issue-body.value.trim();
-        const labels = this.elements.issue-labels.value.trim().split(',').map(l => l.trim()).filter(l => l);
-        if (!title) { this.showStatus('Enter a title', 'error'); return; }
-        try {
-            const res = await this.api(`/repos/${this.owner}/${this.repo}/issues`, {
-                method: 'POST', body: { title, body, labels }
-            });
-            if (!res.ok) { const e = await res.json(); throw new Error(e.message); }
-            this.showStatus('Issue created!', 'success');
-            this.hideCreateIssueForm();
-            this.elements.issue-title.value = '';
-            this.elements.issue-body.value = '';
-            this.elements.issue-labels.value = '';
-            await this.loadIssues();
-        } catch (e) { this.showStatus(`Error: ${e.message}`, 'error'); }
-    }
-
-    async loadReleases() {
-        if (!this.owner || !this.repo) { this.showStatus('Load a repository first', 'error'); return; }
-        try {
-            const res = await this.api(`/repos/${this.owner}/${this.repo}/releases?per_page=20`);
-            if (!res.ok) throw new Error(res.statusText);
-            const releases = await res.json();
-            this.elements.releases-list.innerHTML = releases.length ? releases.map(rel => `
-                <div class=\"release-item\">
-                    <div class=\"release-header\">
-                        <span class=\"release-title-text\">${rel.name || rel.tag_name}</span>
-                        <span class=\"badge ${rel.prerelease ? 'prerelease' : ''}\">${rel.prerelease ? 'pre' : ''}release</span>
-                    </div>
-                    <div class=\"release-meta\">
-                        ${rel.tag_name} • ${new Date(rel.published_at).toLocaleDateString()}
-                    </div>
-                    <div class=\"release-actions\">
-                        <button class=\"small-btn\" onclick=\"window.open('${rel.html_url}', '_blank')\">View</button>
-                    </div>
-                </div>
-            `).join('') : '<p class=\"muted\">No releases found</p>';
-            this.showStatus(`Loaded ${releases.length} releases`, 'success');
-        } catch (e) { this.showStatus(`Error: ${e.message}`, 'error'); }
-    }
-
-    showCreateReleaseForm() { this.elements.create-release-form.style.display = 'block'; }
-    hideCreateReleaseForm() { this.elements.create-release-form.style.display = 'none'; }
-
-    async createRelease() {
-        const tag = this.elements.release-tag.value.trim();
-        const branch = this.elements.release-branch.value;
-        const title = this.elements.release-title.value.trim();
-        const body = this.elements.release-body.value.trim();
-        const draft = this.elements.release-draft.checked;
-        const prerelease = this.elements.release-prerelease.checked;
-        const autoNotes = this.elements.release-auto-notes.checked;
-        if (!tag || !branch) { this.showStatus('Enter tag and select branch', 'error'); return; }
-        try {
-            let releaseBody = body;
-            if (autoNotes) {
-                const notesRes = await this.api(`/repos/${this.owner}/${this.repo}/releases/generate-notes`, {
-                    method: 'POST', body: { tag_name: tag, target_commitish: branch, previous_tag_name: '' }
-                });
-                if (notesRes.ok) {
-                    const notes = await notesRes.json();
-                    releaseBody = notes.body;
-                }
-            }
-            const res = await this.api(`/repos/${this.owner}/${this.repo}/releases`, {
-                method: 'POST', body: { tag_name: tag, target_commitish: branch, name: title, body: releaseBody, draft, prerelease }
-            });
-            if (!res.ok) { const e = await res.json(); throw new Error(e.message); }
-            this.showStatus('Release created!', 'success');
-            this.hideCreateReleaseForm();
-            this.elements.release-tag.value = '';
-            this.elements.release-title.value = '';
-            this.elements.release-body.value = '';
-            await this.loadReleases();
-        } catch (e) { this.showStatus(`Error: ${e.message}`, 'error'); }
-    }
-
-    async loadNotifications() {
-        if (!this.token) { this.showStatus('Enter your PAT first', 'error'); return; }
-        const all = this.elements.notif-filter.value === 'unread';
-        try {
-            const res = await this.api('/notifications?per_page=20&all=' + all);
-            if (!res.ok) throw new Error(res.statusText);
-            const notifs = await res.json();
-            this.elements.notifications-list.innerHTML = notifs.length ? notifs.map(n => `
-                <div class=\"notif-item ${n.unread ? 'notif-unread' : 'notif-read'}\">
-                    <div class=\"notif-header\">
-                        <span class=\"notif-title\">${n.subject.title}</span>
-                    </div>
-                    <div class=\"notif-meta\">
-                        ${n.repository.full_name} • ${n.reason} • ${new Date(n.updated_at).toLocaleDateString()}
-                    </div>
-                    <div class=\"notif-actions\">
-                        <button class=\"small-btn\" onclick=\"window.open('${n.subject.url.replace('api.github.com/repos', 'github.com').replace('/pulls/', '/pull/').replace('/issues/', '/issues/')}', '_blank')\">View</button>
-                    </div>
-                </div>
-            `).join('') : '<p class=\"muted\">No notifications found</p>';
-            this.showStatus(`Loaded ${notifs.length} notifications`, 'success');
-        } catch (e) { this.showStatus(`Error: ${e.message}`, 'error'); }
-    }
-
-    async markAllNotificationsRead() {
-        try {
-            const res = await this.api('/notifications', { method: 'PUT', body: { last_read_at: new Date().toISOString() } });
-            if (!res.ok) throw new Error(res.statusText);
-            this.showStatus('Marked all as read', 'success');
-            await this.loadNotifications();
-        } catch (e) { this.showStatus(`Error: ${e.message}`, 'error'); }
     }
 
     showStatus(message, type = 'info') {
